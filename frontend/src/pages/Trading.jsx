@@ -504,22 +504,6 @@ const Trading = () => {
                 <Row gutter={16}>
                   <Col span={12}>
                     <Form.Item
-                      label="止损百分比 (%)"
-                      name="sl_percentage"
-                      extra="基于实际盈亏，例如：5% = 亏损5%时平仓"
-                    >
-                      <Select
-                        placeholder="选择止损百分比"
-                        allowClear
-                      >
-                        {STOP_LOSS_PRESETS.map(p => (
-                          <Option key={p} value={p}>{p}% 亏损</Option>
-                        ))}
-                      </Select>
-                    </Form.Item>
-                  </Col>
-                  <Col span={12}>
-                    <Form.Item
                       label="止盈百分比 (%)"
                       name="tp_percentage"
                       extra="基于实际盈亏，例如：10% = 盈利10%时平仓"
@@ -534,22 +518,25 @@ const Trading = () => {
                       </Select>
                     </Form.Item>
                   </Col>
+                  <Col span={12}>
+                    <Form.Item
+                      label="止损百分比 (%)"
+                      name="sl_percentage"
+                      extra="基于实际盈亏，例如：5% = 亏损5%时平仓"
+                    >
+                      <Select
+                        placeholder="选择止损百分比"
+                        allowClear
+                      >
+                        {STOP_LOSS_PRESETS.map(p => (
+                          <Option key={p} value={p}>{p}% 亏损</Option>
+                        ))}
+                      </Select>
+                    </Form.Item>
+                  </Col>
                 </Row>
               ) : (
                 <Row gutter={16}>
-                  <Col span={12}>
-                    <Form.Item
-                      label="止损触发价格"
-                      name="sl_trigger_px"
-                    >
-                      <InputNumber
-                        style={{ width: '100%' }}
-                        placeholder="止损触发价"
-                        min={0}
-                        step={0.01}
-                      />
-                    </Form.Item>
-                  </Col>
                   <Col span={12}>
                     <Form.Item
                       label="止盈触发价格"
@@ -558,6 +545,19 @@ const Trading = () => {
                       <InputNumber
                         style={{ width: '100%' }}
                         placeholder="止盈触发价"
+                        min={0}
+                        step={0.01}
+                      />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item
+                      label="止损触发价格"
+                      name="sl_trigger_px"
+                    >
+                      <InputNumber
+                        style={{ width: '100%' }}
+                        placeholder="止损触发价"
                         min={0}
                         step={0.01}
                       />
@@ -747,22 +747,6 @@ const Trading = () => {
                         <Row gutter={16}>
                           <Col span={12}>
                             <Form.Item
-                              label="止损百分比 (%)"
-                              name="conditional_sl_percentage"
-                              extra="基于实际盈亏，例如：5% = 亏损5%时平仓"
-                            >
-                              <Select
-                                placeholder="选择止损百分比（可选）"
-                                allowClear
-                              >
-                                {STOP_LOSS_PRESETS.map(p => (
-                                  <Option key={p} value={p}>{p}% 亏损</Option>
-                                ))}
-                              </Select>
-                            </Form.Item>
-                          </Col>
-                          <Col span={12}>
-                            <Form.Item
                               label="止盈百分比 (%)"
                               name="conditional_tp_percentage"
                               extra="基于实际盈亏，例如：10% = 盈利10%时平仓"
@@ -773,6 +757,22 @@ const Trading = () => {
                               >
                                 {TAKE_PROFIT_PRESETS.map(p => (
                                   <Option key={p} value={p}>{p}% 盈利</Option>
+                                ))}
+                              </Select>
+                            </Form.Item>
+                          </Col>
+                          <Col span={12}>
+                            <Form.Item
+                              label="止损百分比 (%)"
+                              name="conditional_sl_percentage"
+                              extra="基于实际盈亏，例如：5% = 亏损5%时平仓"
+                            >
+                              <Select
+                                placeholder="选择止损百分比（可选）"
+                                allowClear
+                              >
+                                {STOP_LOSS_PRESETS.map(p => (
+                                  <Option key={p} value={p}>{p}% 亏损</Option>
                                 ))}
                               </Select>
                             </Form.Item>
