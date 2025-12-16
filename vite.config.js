@@ -7,6 +7,12 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
+    strictPort: true,
+    hmr: {
+      clientPort: 5173,
+      host: '5173-iflt77kp2v3sxzxrncfgd-dfc00ec5.sandbox.novita.ai',
+      protocol: 'wss'
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:8000',
