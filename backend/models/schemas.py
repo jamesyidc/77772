@@ -46,6 +46,8 @@ class ConditionalOrderRequest(BaseModel):
     order_px: str = Field(default="-1", description="Order price (-1 for market)")
     td_mode: str = Field(default="cross", description="Trade mode")
     pos_side: Optional[str] = Field(None, description="Position side")
+    sl_trigger_px: Optional[str] = Field(None, description="Stop-loss trigger price")
+    tp_trigger_px: Optional[str] = Field(None, description="Take-profit trigger price")
 
 
 class LeverageRequest(BaseModel):

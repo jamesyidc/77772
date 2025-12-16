@@ -190,9 +190,11 @@ class TradingService:
     def place_conditional_order(self, inst_id: str, side: str, sz: str,
                                trigger_px: str, order_px: str = "-1",
                                td_mode: str = "cross",
-                               pos_side: Optional[str] = None) -> Dict:
+                               pos_side: Optional[str] = None,
+                               sl_trigger_px: Optional[str] = None,
+                               tp_trigger_px: Optional[str] = None) -> Dict:
         """
-        Place conditional order (trigger order)
+        Place conditional order (trigger order) with optional stop-loss and take-profit
         
         Args:
             inst_id: Instrument ID
@@ -202,6 +204,8 @@ class TradingService:
             order_px: Order price ('-1' for market order)
             td_mode: Trade mode
             pos_side: Position side
+            sl_trigger_px: Stop-loss trigger price
+            tp_trigger_px: Take-profit trigger price
         
         Returns:
             Order result
@@ -218,6 +222,15 @@ class TradingService:
         
         if pos_side:
             params["posSide"] = pos_side
+        
+        # Add stop-loss and take-profit if provided
+        if sl_trigger_px:
+            params["slTriggerPx"] = sl_trigger_px
+            params["slOrdPx"] = "-1"  # Market order for stop-loss
+        
+        if tp_trigger_px:
+            params["tpTriggerPx"] = tp_trigger_px
+            params["tpOrdPx"] = "-1"  # Market order for take-profit
         
         return self.client.place_algo_order(**params)
     

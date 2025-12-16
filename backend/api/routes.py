@@ -249,7 +249,9 @@ async def place_conditional_order(request: ConditionalOrderRequest):
             trigger_px=request.trigger_px,
             order_px=request.order_px,
             td_mode=request.td_mode,
-            pos_side=request.pos_side
+            pos_side=request.pos_side,
+            sl_trigger_px=request.sl_trigger_px,
+            tp_trigger_px=request.tp_trigger_px
         )
         results[account_name] = result
     

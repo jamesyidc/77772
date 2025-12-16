@@ -217,6 +217,38 @@ const Trading = () => {
         return;
       }
 
+      // Calculate stop-loss and take-profit prices based on percentages
+      let slTriggerPx = null;
+      let tpTriggerPx = null;
+      
+      if (values.conditional_sl_percentage || values.conditional_tp_percentage) {
+        const triggerPrice = parseFloat(values.trigger_px);
+        
+        // Calculate stop-loss price (percentage based on actual P&L)
+        if (values.conditional_sl_percentage) {
+          const priceChangePercent = values.conditional_sl_percentage / leverage;
+          if (values.side === 'buy') {
+            // Long position: stop-loss below trigger price
+            slTriggerPx = (triggerPrice * (1 - priceChangePercent / 100)).toFixed(2);
+          } else {
+            // Short position: stop-loss above trigger price
+            slTriggerPx = (triggerPrice * (1 + priceChangePercent / 100)).toFixed(2);
+          }
+        }
+        
+        // Calculate take-profit price (percentage based on actual P&L)
+        if (values.conditional_tp_percentage) {
+          const priceChangePercent = values.conditional_tp_percentage / leverage;
+          if (values.side === 'buy') {
+            // Long position: take-profit above trigger price
+            tpTriggerPx = (triggerPrice * (1 + priceChangePercent / 100)).toFixed(2);
+          } else {
+            // Short position: take-profit below trigger price
+            tpTriggerPx = (triggerPrice * (1 - priceChangePercent / 100)).toFixed(2);
+          }
+        }
+      }
+
       const result = await tradingAPI.placeConditionalOrder({
         account_names: values.account_names,
         inst_id: values.inst_id,
@@ -226,10 +258,18 @@ const Trading = () => {
         order_px: values.order_px?.toString() || '-1',
         td_mode: values.td_mode,
         pos_side: values.pos_side,
+        sl_trigger_px: slTriggerPx,
+        tp_trigger_px: tpTriggerPx,
       });
 
       if (result.code === '0') {
-        message.success(`条件单提交成功（不占用资金）- 数量：${sz}张`);
+        let successMsg = `条件单提交成功（不占用资金）- 数量：${sz}张`;
+        if (slTriggerPx || tpTriggerPx) {
+          successMsg += '\n';
+          if (slTriggerPx) successMsg += `止损价: $${slTriggerPx} `;
+          if (tpTriggerPx) successMsg += `止盈价: $${tpTriggerPx}`;
+        }
+        message.success(successMsg);
         conditionalForm.resetFields();
       } else {
         message.error(`条件单提交失败: ${result.msg}`);
@@ -692,6 +732,52 @@ const Trading = () => {
                             step={0.01}
                           />
                         </Form.Item>
+
+                        <Divider>止盈止损设置（可选）</Divider>
+
+                        <Alert
+                          message="条件单止盈止损说明"
+                          description="条件单触发后，将自动设置止盈止损。百分比基于实际盈亏，会根据杠杆自动计算触发价格。"
+                          type="info"
+                          showIcon
+                          closable
+                          style={{ marginBottom: 16 }}
+                        />
+
+                        <Row gutter={16}>
+                          <Col span={12}>
+                            <Form.Item
+                              label="止损百分比 (%)"
+                              name="conditional_sl_percentage"
+                              extra="基于实际盈亏，例如：5% = 亏损5%时平仓"
+                            >
+                              <Select
+                                placeholder="选择止损百分比（可选）"
+                                allowClear
+                              >
+                                {STOP_LOSS_PRESETS.map(p => (
+                                  <Option key={p} value={p}>{p}% 亏损</Option>
+                                ))}
+                              </Select>
+                            </Form.Item>
+                          </Col>
+                          <Col span={12}>
+                            <Form.Item
+                              label="止盈百分比 (%)"
+                              name="conditional_tp_percentage"
+                              extra="基于实际盈亏，例如：10% = 盈利10%时平仓"
+                            >
+                              <Select
+                                placeholder="选择止盈百分比（可选）"
+                                allowClear
+                              >
+                                {TAKE_PROFIT_PRESETS.map(p => (
+                                  <Option key={p} value={p}>{p}% 盈利</Option>
+                                ))}
+                              </Select>
+                            </Form.Item>
+                          </Col>
+                        </Row>
 
                         <Form.Item
                           label="持仓方向"
