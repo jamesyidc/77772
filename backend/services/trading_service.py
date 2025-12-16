@@ -241,7 +241,13 @@ class TradingService:
                        begin: Optional[str] = None,
                        end: Optional[str] = None) -> Dict:
         """
-        Get profit and loss summary with transaction details
+        Get profit and loss summary using Bills API
+        
+        Bills API provides accurate P&L data including:
+        - Trade profits/losses (type=2)
+        - Funding fees (type=8)
+        - Interest (type=7)
+        - All balance changes
         
         Args:
             inst_type: Instrument type
@@ -249,47 +255,70 @@ class TradingService:
             end: End timestamp (ms)
         
         Returns:
-            PnL summary with fees
+            PnL summary with accurate realized P&L and fees
         """
-        fills = self.client.get_fills_history(
+        # Get bills from account (all balance changes)
+        bills = self.client.get_bills(
             inst_type=inst_type,
             begin=begin,
             end=end,
             limit=100
         )
         
-        if fills.get("code") != "0":
-            return fills
+        if bills.get("code") != "0":
+            return bills
         
-        # Calculate summary
+        # Calculate summary from bills
         total_pnl = 0
         total_fee = 0
+        total_funding_fee = 0
+        balance_change = 0
         trades = []
         
-        for fill in fills.get("data", []):
-            pnl = float(fill.get("pnl", 0))
-            fee = float(fill.get("fee", 0))
+        for bill in bills.get("data", []):
+            bill_type = bill.get("type", "")
+            pnl = float(bill.get("pnl", 0) or 0)
+            fee = float(bill.get("fee", 0) or 0)
+            bal_chg = float(bill.get("balChg", 0) or 0)
             
-            total_pnl += pnl
-            total_fee += abs(fee)
-            
-            trades.append({
-                "instId": fill.get("instId"),
-                "side": fill.get("side"),
-                "fillSz": fill.get("fillSz"),
-                "fillPx": fill.get("fillPx"),
-                "pnl": pnl,
-                "fee": fee,
-                "ts": fill.get("ts")
-            })
+            # Type 2 = Trade
+            # Type 8 = Funding fee
+            # Type 7 = Interest deduction
+            if bill_type in ["2", "8", "7"]:
+                total_pnl += pnl
+                
+                if bill_type == "8":  # Funding fee
+                    total_funding_fee += bal_chg
+                
+                # Fee is negative for charges, positive for rebates
+                total_fee += abs(fee)
+                balance_change += bal_chg
+                
+                trades.append({
+                    "instId": bill.get("instId"),
+                    "type": bill_type,
+                    "subType": bill.get("subType"),
+                    "pnl": pnl,
+                    "fee": fee,
+                    "balChg": bal_chg,
+                    "ts": bill.get("ts"),
+                    "px": bill.get("px"),
+                    "sz": bill.get("sz")
+                })
+        
+        # Calculate net P&L
+        # Net P&L = Total balance change (includes all P&L and fees)
+        # Or: Net P&L = Total PnL - Total Fee + Funding Fee
+        net_pnl = balance_change
         
         return {
             "code": "0",
             "msg": "Success",
             "data": {
-                "total_pnl": total_pnl,
+                "total_pnl": balance_change,  # Use balance_change as total realized P&L
                 "total_fee": total_fee,
-                "net_pnl": total_pnl - total_fee,
+                "funding_fee": total_funding_fee,
+                "net_pnl": net_pnl,
                 "trade_count": len(trades),
                 "trades": trades
             }

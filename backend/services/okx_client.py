@@ -362,6 +362,52 @@ class OKXClient:
             params["end"] = end
         return self._request("GET", endpoint, params=params)
     
+    def get_bills(self, inst_type: Optional[str] = None,
+                 inst_id: Optional[str] = None,
+                 ccy: Optional[str] = None,
+                 type: Optional[str] = None,
+                 begin: Optional[str] = None,
+                 end: Optional[str] = None,
+                 limit: int = 100) -> Dict:
+        """
+        Get account bills (all balance changes)
+        
+        Bills API returns all transactions that result in balance changes, including:
+        - Trade profits/losses
+        - Funding fees
+        - Interest
+        - Transfers
+        
+        Args:
+            inst_type: Instrument type (SPOT, MARGIN, SWAP, FUTURES, OPTION)
+            inst_id: Instrument ID
+            ccy: Bill currency (e.g., USDT)
+            type: Bill type (e.g., "2" for Trade, "8" for Funding fee)
+            begin: Start timestamp (ms)
+            end: End timestamp (ms)
+            limit: Number of results (max 100, default 100)
+        
+        Returns:
+            Bills data with pnl, fee, and balChg fields
+        """
+        endpoint = "/api/v5/account/bills"
+        params = {
+            "limit": str(limit)
+        }
+        if inst_type:
+            params["instType"] = inst_type
+        if inst_id:
+            params["instId"] = inst_id
+        if ccy:
+            params["ccy"] = ccy
+        if type:
+            params["type"] = type
+        if begin:
+            params["begin"] = begin
+        if end:
+            params["end"] = end
+        return self._request("GET", endpoint, params=params)
+    
     # ==================== Market Data APIs ====================
     
     def get_ticker(self, inst_id: str) -> Dict:
