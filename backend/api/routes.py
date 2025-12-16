@@ -294,6 +294,32 @@ async def cancel_all_orders(request: CancelOrderRequest):
     }
 
 
+@router.post("/positions/close-all")
+async def close_all_positions(request: CancelOrderRequest):
+    """Close all positions with market orders"""
+    results = {}
+    accounts = request.account_names or account_manager.get_all_accounts()
+    
+    for account_name in accounts:
+        account = account_manager.get_account(account_name)
+        if not account:
+            results[account_name] = {
+                "code": "-1",
+                "msg": f"Account {account_name} not found"
+            }
+            continue
+        
+        trading_service = TradingService(account)
+        result = trading_service.close_all_positions(inst_type="SWAP")
+        results[account_name] = result
+    
+    return {
+        "code": "0",
+        "msg": "Success",
+        "data": results
+    }
+
+
 # ==================== History & Analytics ====================
 
 @router.post("/history/orders")

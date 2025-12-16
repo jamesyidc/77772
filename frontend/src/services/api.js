@@ -72,6 +72,7 @@ export const tradingAPI = {
   placeConditionalOrder: (data) => api.post('/order/conditional', data),
   setLeverage: (data) => api.post('/leverage/set', data),
   cancelAllOrders: (data) => api.post('/order/cancel-all', data),
+  closeAllPositions: (data) => api.post('/positions/close-all', data),
 };
 
 // History APIs

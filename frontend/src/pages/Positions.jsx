@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Button, Select, message, Tag, Space } from 'antd';
-import { ReloadOutlined } from '@ant-design/icons';
-import { accountAPI } from '../services/api';
+import { Card, Table, Button, Select, message, Tag, Space, Modal } from 'antd';
+import { ReloadOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { accountAPI, tradingAPI } from '../services/api';
 
 const { Option } = Select;
 
@@ -56,6 +56,66 @@ const Positions = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCloseAllPositions = () => {
+    if (positionsData.length === 0) {
+      message.warning('当前没有持仓');
+      return;
+    }
+
+    Modal.confirm({
+      title: '确认全部市价平仓',
+      content: (
+        <div>
+          <p>确定要将所有持仓全部市价平仓吗？</p>
+          <p style={{ color: 'red', fontWeight: 'bold' }}>
+            警告：此操作不可撤销！将立即以市价平掉所有 {positionsData.length} 个持仓。
+          </p>
+          <p>涉及账户：{selectedAccounts.join(', ')}</p>
+        </div>
+      ),
+      okText: '确认平仓',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          setLoading(true);
+          const res = await tradingAPI.closeAllPositions({
+            account_names: selectedAccounts
+          });
+
+          if (res.code === '0') {
+            let successCount = 0;
+            let failedCount = 0;
+
+            Object.values(res.data || {}).forEach(accountResult => {
+              if (accountResult.data) {
+                successCount += accountResult.data.success_count || 0;
+                failedCount += accountResult.data.failed_count || 0;
+              }
+            });
+
+            if (failedCount > 0) {
+              message.warning(`平仓完成：成功 ${successCount} 个，失败 ${failedCount} 个`);
+            } else {
+              message.success(`成功平仓 ${successCount} 个持仓`);
+            }
+
+            // Reload positions after 1 second
+            setTimeout(() => {
+              loadPositions();
+            }, 1000);
+          } else {
+            message.error(`平仓失败：${res.msg}`);
+          }
+        } catch (error) {
+          message.error(`平仓失败：${error.message}`);
+        } finally {
+          setLoading(false);
+        }
+      }
+    });
   };
 
   const columns = [
@@ -161,14 +221,25 @@ const Positions = () => {
             ))}
           </Select>
           
-          <Button
-            type="primary"
-            icon={<ReloadOutlined />}
-            onClick={loadPositions}
-            loading={loading}
-          >
-            刷新
-          </Button>
+          <Space>
+            <Button
+              danger
+              icon={<CloseCircleOutlined />}
+              onClick={handleCloseAllPositions}
+              disabled={positionsData.length === 0}
+              loading={loading}
+            >
+              全部市价平仓
+            </Button>
+            <Button
+              type="primary"
+              icon={<ReloadOutlined />}
+              onClick={loadPositions}
+              loading={loading}
+            >
+              刷新
+            </Button>
+          </Space>
         </Space>
 
         <Table

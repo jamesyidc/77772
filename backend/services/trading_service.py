@@ -323,3 +323,110 @@ class TradingService:
                 "trades": trades
             }
         }
+    
+    def close_all_positions(self, inst_type: str = "SWAP") -> Dict:
+        """
+        Close all positions with market orders
+        
+        Args:
+            inst_type: Instrument type (default: SWAP)
+        
+        Returns:
+            Results of closing all positions
+        """
+        # Get all current positions
+        positions = self.client.get_positions(inst_type=inst_type)
+        
+        if positions.get("code") != "0":
+            return positions
+        
+        results = []
+        positions_data = positions.get("data", [])
+        
+        if not positions_data:
+            return {
+                "code": "0",
+                "msg": "No positions to close",
+                "data": {
+                    "success_count": 0,
+                    "failed_count": 0,
+                    "results": []
+                }
+            }
+        
+        success_count = 0
+        failed_count = 0
+        
+        for pos in positions_data:
+            inst_id = pos.get("instId")
+            pos_side = pos.get("posSide")
+            avail_pos = pos.get("availPos", "0")
+            
+            # Skip if no available position to close
+            if float(avail_pos) <= 0:
+                continue
+            
+            # Determine order side (opposite of position side)
+            # For long positions, we sell; for short positions, we buy
+            if pos_side == "long":
+                order_side = "sell"
+            elif pos_side == "short":
+                order_side = "buy"
+            else:
+                # For net mode (posSide is "net"), check pos sign
+                pos_amount = float(pos.get("pos", "0"))
+                if pos_amount > 0:
+                    order_side = "sell"
+                else:
+                    order_side = "buy"
+            
+            # Place market order to close position
+            try:
+                result = self.client.place_order(
+                    inst_id=inst_id,
+                    td_mode=pos.get("mgnMode", "cross"),
+                    side=order_side,
+                    ord_type="market",
+                    sz=avail_pos,
+                    reduce_only=True,
+                    pos_side=pos_side if pos_side in ["long", "short"] else None
+                )
+                
+                if result.get("code") == "0":
+                    success_count += 1
+                    results.append({
+                        "instId": inst_id,
+                        "posSide": pos_side,
+                        "size": avail_pos,
+                        "status": "success",
+                        "orderId": result.get("data", [{}])[0].get("ordId"),
+                        "message": "Position closed successfully"
+                    })
+                else:
+                    failed_count += 1
+                    results.append({
+                        "instId": inst_id,
+                        "posSide": pos_side,
+                        "size": avail_pos,
+                        "status": "failed",
+                        "message": result.get("msg", "Unknown error")
+                    })
+            except Exception as e:
+                failed_count += 1
+                results.append({
+                    "instId": inst_id,
+                    "posSide": pos_side,
+                    "size": avail_pos,
+                    "status": "failed",
+                    "message": str(e)
+                })
+        
+        return {
+            "code": "0",
+            "msg": f"Closed {success_count} positions, {failed_count} failed",
+            "data": {
+                "success_count": success_count,
+                "failed_count": failed_count,
+                "results": results
+            }
+        }
