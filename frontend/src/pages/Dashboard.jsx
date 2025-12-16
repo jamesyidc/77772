@@ -304,6 +304,88 @@ const Dashboard = () => {
         />
       </Card>
 
+      {/* 持仓盈亏汇总 */}
+      <Card title="💰 持仓盈亏汇总" style={{ marginTop: 24 }}>
+        <Row gutter={16}>
+          {(() => {
+            let totalRealizedPnl = 0;
+            let totalUnrealizedPnl = 0;
+            let totalFee = 0;
+            
+            Object.values(positionData).forEach(positions => {
+              if (positions?.code === '0' && positions.data) {
+                positions.data.forEach(pos => {
+                  totalRealizedPnl += parseFloat(pos.realizedPnl || 0);
+                  totalUnrealizedPnl += parseFloat(pos.upl || 0);
+                  totalFee += Math.abs(parseFloat(pos.fee || 0));
+                });
+              }
+            });
+            
+            const netPnl = totalRealizedPnl + totalUnrealizedPnl - totalFee;
+            
+            return (
+              <>
+                <Col span={6}>
+                  <Card>
+                    <Statistic
+                      title="已实现盈亏"
+                      value={totalRealizedPnl}
+                      precision={2}
+                      prefix="$"
+                      valueStyle={{ color: totalRealizedPnl >= 0 ? '#3f8600' : '#cf1322', fontWeight: 'bold' }}
+                      suffix={
+                        <span style={{ fontSize: '12px', color: '#999', marginLeft: '8px' }}>
+                          (含部分平仓)
+                        </span>
+                      }
+                    />
+                  </Card>
+                </Col>
+                <Col span={6}>
+                  <Card>
+                    <Statistic
+                      title="未实现盈亏"
+                      value={totalUnrealizedPnl}
+                      precision={2}
+                      prefix="$"
+                      valueStyle={{ color: totalUnrealizedPnl >= 0 ? '#3f8600' : '#cf1322' }}
+                      suffix={
+                        <span style={{ fontSize: '12px', color: '#999', marginLeft: '8px' }}>
+                          (浮动盈亏)
+                        </span>
+                      }
+                    />
+                  </Card>
+                </Col>
+                <Col span={6}>
+                  <Card>
+                    <Statistic
+                      title="总手续费"
+                      value={totalFee}
+                      precision={2}
+                      prefix="$"
+                      valueStyle={{ color: '#faad14' }}
+                    />
+                  </Card>
+                </Col>
+                <Col span={6}>
+                  <Card>
+                    <Statistic
+                      title="净盈亏"
+                      value={netPnl}
+                      precision={2}
+                      prefix="$"
+                      valueStyle={{ color: netPnl >= 0 ? '#3f8600' : '#cf1322', fontWeight: 'bold', fontSize: '24px' }}
+                    />
+                  </Card>
+                </Col>
+              </>
+            );
+          })()}
+        </Row>
+      </Card>
+
       {/* 持仓详情 */}
       <Card title="持仓详情" style={{ marginTop: 24 }}>
         {/* 如果持仓API无权限但有持仓数据，显示警告 */}
@@ -346,6 +428,7 @@ const Dashboard = () => {
                     avgPx: pos.avgPx,
                     markPx: pos.markPx,
                     upl: parseFloat(pos.upl || 0),
+                    realizedPnl: parseFloat(pos.realizedPnl || 0),
                     uplRatio: pos.uplRatio,
                     lever: pos.lever,
                     notionalUsd: pos.notionalUsd,
@@ -395,6 +478,17 @@ const Dashboard = () => {
               dataIndex: 'markPx',
               key: 'markPx',
               render: (val) => `$${parseFloat(val).toFixed(2)}`,
+            },
+            {
+              title: '已实现盈亏',
+              dataIndex: 'realizedPnl',
+              key: 'realizedPnl',
+              render: (val) => (
+                <span style={{ color: val >= 0 ? 'green' : 'red', fontWeight: 'bold' }}>
+                  {val >= 0 ? '+' : ''}${val.toFixed(2)}
+                </span>
+              ),
+              sorter: (a, b) => a.realizedPnl - b.realizedPnl,
             },
             {
               title: '未实现盈亏',

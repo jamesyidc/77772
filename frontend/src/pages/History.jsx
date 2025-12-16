@@ -186,6 +186,21 @@ const History = () => {
     <div>
       <h1>历史记录</h1>
       
+      {/* PnL calculation notice */}
+      <Card style={{ marginTop: 16, background: '#fffbe6', border: '1px solid #ffe58f' }}>
+        <div style={{ display: 'flex', alignItems: 'start' }}>
+          <span style={{ fontSize: '18px', marginRight: '12px' }}>⚠️</span>
+          <div>
+            <strong>盈亏计算说明</strong>
+            <p style={{ margin: '8px 0 0 0', color: '#666' }}>
+              • 下方"总盈亏"仅显示<strong>完全平仓</strong>的交易盈亏，不包含部分平仓的盈利<br/>
+              • 要查看<strong>部分平仓盈利</strong>和<strong>当前浮动盈亏</strong>，请前往 <strong>"仪表盘"</strong> 页面查看持仓详情<br/>
+              • 持仓详情中的"已实现盈亏"包含所有平仓盈利（含部分平仓）
+            </p>
+          </div>
+        </div>
+      </Card>
+      
       <Card style={{ marginTop: 24 }}>
         <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between', flexWrap: 'wrap' }}>
           <Space>
