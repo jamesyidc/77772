@@ -3,6 +3,7 @@ import {
   Card, Form, Select, InputNumber, Button, message, Space, Divider, Alert, List
 } from 'antd';
 import { accountAPI, tradingAPI, marketAPI } from '../services/api';
+import { filterInstruments } from '../config/instruments';
 
 const { Option } = Select;
 
@@ -30,7 +31,9 @@ const Settings = () => {
     try {
       const res = await marketAPI.getInstruments('SWAP');
       if (res.code === '0') {
-        setInstruments(res.data || []);
+        // Filter to only show allowed instruments
+        const filtered = filterInstruments(res.data || []);
+        setInstruments(filtered);
       }
     } catch (error) {
       message.error('加载合约列表失败');

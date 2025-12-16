@@ -4,6 +4,7 @@ import {
   Radio, Space, Divider, Alert, Row, Col
 } from 'antd';
 import { accountAPI, tradingAPI, marketAPI } from '../services/api';
+import { filterInstruments, getShortName } from '../config/instruments';
 
 const { Option } = Select;
 
@@ -35,7 +36,9 @@ const Trading = () => {
     try {
       const res = await marketAPI.getInstruments('SWAP');
       if (res.code === '0') {
-        setInstruments(res.data || []);
+        // Filter to only show allowed instruments
+        const filtered = filterInstruments(res.data || []);
+        setInstruments(filtered);
       }
     } catch (error) {
       message.error('加载合约列表失败');
