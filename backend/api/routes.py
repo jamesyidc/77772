@@ -41,11 +41,18 @@ async def get_balance(account_names: Optional[str] = None, ccy: Optional[str] = 
     accounts = account_names.split(",") if account_names else None
     
     if accounts and len(accounts) == 1:
-        # Single account
+        # Single account - wrap in consistent format
         account = account_manager.get_account(accounts[0])
         if not account:
             raise HTTPException(status_code=404, detail="Account not found")
-        return account.get_balance(ccy=ccy)
+        balance = account.get_balance(ccy=ccy)
+        return {
+            "code": "0",
+            "msg": "Success",
+            "data": {
+                accounts[0]: balance
+            }
+        }
     else:
         # Multiple accounts
         balances = account_manager.get_all_balances(accounts)
@@ -71,11 +78,18 @@ async def get_positions(account_names: Optional[str] = None,
     accounts = account_names.split(",") if account_names else None
     
     if accounts and len(accounts) == 1:
-        # Single account
+        # Single account - wrap in consistent format
         account = account_manager.get_account(accounts[0])
         if not account:
             raise HTTPException(status_code=404, detail="Account not found")
-        return account.get_positions(inst_type=inst_type, inst_id=inst_id)
+        positions = account.get_positions(inst_type=inst_type, inst_id=inst_id)
+        return {
+            "code": "0",
+            "msg": "Success",
+            "data": {
+                accounts[0]: positions
+            }
+        }
     else:
         # Multiple accounts
         positions = account_manager.get_all_positions(accounts, inst_type=inst_type)
