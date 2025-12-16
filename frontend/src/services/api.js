@@ -1,6 +1,17 @@
 import axios from 'axios';
 
-const API_BASE_URL = '/api/v1';
+// Determine API base URL based on environment
+const getApiBaseUrl = () => {
+  // If accessing through sandbox URL, use the sandbox backend URL
+  if (window.location.hostname.includes('sandbox.novita.ai')) {
+    const sandboxId = window.location.hostname.split('-').slice(1).join('-').replace('.sandbox.novita.ai', '');
+    return `https://8000-${sandboxId}.sandbox.novita.ai/api/v1`;
+  }
+  // Otherwise use relative URL (works with Vite proxy in development)
+  return '/api/v1';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 const api = axios.create({
   baseURL: API_BASE_URL,
