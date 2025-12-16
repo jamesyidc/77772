@@ -25,6 +25,10 @@ class Config:
     MAX_RETRY_ATTEMPTS = int(os.getenv("MAX_RETRY_ATTEMPTS", 3))
     REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", 10))
     
+    # Multi-Account Request Configuration
+    # Delay between requests when operating on multiple accounts (in seconds)
+    MULTI_ACCOUNT_REQUEST_INTERVAL = float(os.getenv("MULTI_ACCOUNT_REQUEST_INTERVAL", 0.2))
+    
     # Position Size Presets (percentage of available balance)
     POSITION_SIZE_PRESETS = [10, 20, 25, 33, 50, 66, 100]
     

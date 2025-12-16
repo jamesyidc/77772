@@ -1,7 +1,10 @@
 """
 Multi-Account Management Service
 """
+import time
+import asyncio
 from typing import Dict, List, Optional, Any
+from concurrent.futures import ThreadPoolExecutor
 from backend.services.okx_client import OKXClient
 from backend.config.config import config
 
@@ -12,6 +15,10 @@ class AccountManager:
     def __init__(self):
         self.accounts: Dict[str, OKXClient] = {}
         self._load_accounts()
+        # Request interval between accounts (in seconds) - configurable
+        self.request_interval = config.MULTI_ACCOUNT_REQUEST_INTERVAL
+        self.executor = ThreadPoolExecutor(max_workers=5)
+        print(f"AccountManager initialized with {len(self.accounts)} accounts, request interval: {self.request_interval}s")
     
     def _load_accounts(self):
         """Load all configured accounts"""
@@ -74,7 +81,7 @@ class AccountManager:
     
     def execute_multi(self, account_names: List[str], operation: str, **kwargs) -> List[Dict]:
         """
-        Execute operation on multiple accounts
+        Execute operation on multiple accounts with delay to prevent API conflicts
         
         Args:
             account_names: List of account names
@@ -85,9 +92,14 @@ class AccountManager:
             List of results for each account
         """
         results = []
-        for account_name in account_names:
+        for i, account_name in enumerate(account_names):
+            # Add delay between requests (except for the first one)
+            if i > 0:
+                time.sleep(self.request_interval)
+            
             result = self.execute_single(account_name, operation, **kwargs)
             results.append(result)
+        
         return results
     
     def execute_all(self, operation: str, **kwargs) -> List[Dict]:
@@ -107,7 +119,7 @@ class AccountManager:
     
     def get_all_balances(self, account_names: Optional[List[str]] = None) -> Dict:
         """
-        Get balances for multiple accounts
+        Get balances for multiple accounts with request interval delay
         
         Args:
             account_names: List of account names (None for all accounts)
@@ -118,7 +130,11 @@ class AccountManager:
         accounts = account_names or self.get_all_accounts()
         balances = {}
         
-        for account_name in accounts:
+        for i, account_name in enumerate(accounts):
+            # Add delay between requests to prevent API conflicts
+            if i > 0:
+                time.sleep(self.request_interval)
+            
             account = self.get_account(account_name)
             if account:
                 balance = account.get_balance()
@@ -129,7 +145,7 @@ class AccountManager:
     def get_all_positions(self, account_names: Optional[List[str]] = None,
                          inst_type: str = "SWAP") -> Dict:
         """
-        Get positions for multiple accounts
+        Get positions for multiple accounts with request interval delay
         
         Args:
             account_names: List of account names (None for all accounts)
@@ -141,7 +157,11 @@ class AccountManager:
         accounts = account_names or self.get_all_accounts()
         positions = {}
         
-        for account_name in accounts:
+        for i, account_name in enumerate(accounts):
+            # Add delay between requests to prevent API conflicts
+            if i > 0:
+                time.sleep(self.request_interval)
+            
             account = self.get_account(account_name)
             if account:
                 position = account.get_positions(inst_type=inst_type)
@@ -151,11 +171,15 @@ class AccountManager:
     
     def get_all_pending_orders(self, account_names: Optional[List[str]] = None,
                               inst_type: str = "SWAP") -> Dict:
-        """Get pending orders for multiple accounts"""
+        """Get pending orders for multiple accounts with request interval delay"""
         accounts = account_names or self.get_all_accounts()
         orders = {}
         
-        for account_name in accounts:
+        for i, account_name in enumerate(accounts):
+            # Add delay between requests to prevent API conflicts
+            if i > 0:
+                time.sleep(self.request_interval)
+            
             account = self.get_account(account_name)
             if account:
                 pending = account.get_pending_orders(inst_type=inst_type)
@@ -165,11 +189,15 @@ class AccountManager:
     
     def cancel_all_orders_multi(self, account_names: Optional[List[str]] = None,
                                inst_id: Optional[str] = None) -> Dict:
-        """Cancel all orders for multiple accounts"""
+        """Cancel all orders for multiple accounts with request interval delay"""
         accounts = account_names or self.get_all_accounts()
         results = {}
         
-        for account_name in accounts:
+        for i, account_name in enumerate(accounts):
+            # Add delay between requests to prevent API conflicts
+            if i > 0:
+                time.sleep(self.request_interval)
+            
             account = self.get_account(account_name)
             if account:
                 result = account.cancel_all_orders(inst_id=inst_id)
@@ -182,10 +210,19 @@ class AccountManager:
     def place_order_multi(self, account_names: List[str], inst_id: str,
                          td_mode: str, side: str, ord_type: str, sz: str,
                          **kwargs) -> Dict:
-        """Place order on multiple accounts"""
+        """
+        Place order on multiple accounts with request interval delay
+        
+        IMPORTANT: Adds delay between each account to prevent API conflicts
+        """
         results = {}
         
-        for account_name in account_names:
+        for i, account_name in enumerate(account_names):
+            # Add delay between requests to prevent API conflicts
+            # Critical for trading operations to avoid rate limits
+            if i > 0:
+                time.sleep(self.request_interval)
+            
             account = self.get_account(account_name)
             if account:
                 result = account.place_order(
@@ -202,10 +239,14 @@ class AccountManager:
     
     def set_leverage_multi(self, account_names: List[str], inst_id: str,
                           lever: int, mgn_mode: str = "cross") -> Dict:
-        """Set leverage on multiple accounts"""
+        """Set leverage on multiple accounts with request interval delay"""
         results = {}
         
-        for account_name in account_names:
+        for i, account_name in enumerate(account_names):
+            # Add delay between requests to prevent API conflicts
+            if i > 0:
+                time.sleep(self.request_interval)
+            
             account = self.get_account(account_name)
             if account:
                 result = account.set_leverage(
