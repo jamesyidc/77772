@@ -306,6 +306,31 @@ const Dashboard = () => {
 
       {/* 持仓详情 */}
       <Card title="持仓详情" style={{ marginTop: 24 }}>
+        {/* 如果持仓API无权限但有持仓数据，显示警告 */}
+        {Object.values(positionData).some(p => p.code === '-1') && totalPnL !== 0 && (
+          <Alert
+            message="⚠️ 无法显示持仓详情"
+            description={
+              <div>
+                <p><strong>原因</strong>：OKX API Key 缺少"持仓查询"权限（/api/v5/account/positions 返回401）</p>
+                <p><strong>当前状态</strong>：系统检测到您有持仓（未实现盈亏：${totalPnL.toFixed(2)} USDT），但无法获取详细信息</p>
+                <p><strong>解决方案</strong>：</p>
+                <ol>
+                  <li>登录 OKX平台 (https://www.okx.com)</li>
+                  <li>进入 账户 → API → API管理</li>
+                  <li>编辑您的API Key，确保勾选 <strong>"读取" + "交易"</strong> 权限</li>
+                  <li>特别确认 /api/v5/account/positions 接口有访问权限</li>
+                  <li>保存后等待5-10分钟，刷新本页面</li>
+                </ol>
+                <p>详细文档：API_PERMISSION_ISSUE.md</p>
+              </div>
+            }
+            type="error"
+            showIcon
+            closable
+            style={{ marginBottom: 16 }}
+          />
+        )}
         <Table
           dataSource={(() => {
             const positionsList = [];
@@ -410,7 +435,28 @@ const Dashboard = () => {
           ]}
           pagination={false}
           locale={{
-            emptyText: '暂无持仓'
+            emptyText: (() => {
+              const hasPermissionIssue = Object.values(positionData).some(p => p.code === '-1');
+              const hasPnL = totalPnL !== 0;
+              
+              if (hasPermissionIssue && hasPnL) {
+                return (
+                  <div style={{ padding: '40px', textAlign: 'center' }}>
+                    <p style={{ fontSize: '16px', color: '#ff4d4f', marginBottom: '8px' }}>
+                      🔒 <strong>API权限不足</strong>
+                    </p>
+                    <p style={{ color: '#999' }}>
+                      检测到账户有持仓（未实现盈亏：${totalPnL.toFixed(2)}），但无法获取详情
+                    </p>
+                    <p style={{ color: '#999', marginTop: '8px' }}>
+                      请在OKX平台更新API权限后刷新页面
+                    </p>
+                  </div>
+                );
+              }
+              
+              return '暂无持仓';
+            })()
           }}
         />
       </Card>
@@ -441,28 +487,7 @@ const Dashboard = () => {
         />
       )}
 
-      {/* 持仓API权限警告 */}
-      {Object.values(positionData).some(p => p.code === '-1') && totalPnL !== 0 && (
-        <Alert
-          message="⚠️ 持仓数据提示"
-          description={
-            <div>
-              <p><strong>持仓API权限受限</strong>，当前持仓数据来源于余额API的衍生信息：</p>
-              <ul>
-                <li>✅ <strong>未实现盈亏</strong>：从账户余额中的 <code>isoUpl</code> 字段提取（当前显示 ${totalPnL.toFixed(2)}）</li>
-                <li>✅ <strong>占用保证金</strong>：从 <code>frozenBal</code> 字段提取，显示逐仓持仓占用资金</li>
-                <li>⚠️ <strong>持仓详情</strong>：无法显示具体合约名称、张数、开仓价等详细信息</li>
-              </ul>
-              <p><strong>如需完整持仓详情</strong>，请登录OKX平台更新API权限，开启持仓查询功能。</p>
-              <p>参考文档：<code>API_PERMISSION_ISSUE.md</code></p>
-            </div>
-          }
-          type="warning"
-          showIcon
-          closable
-          style={{ marginTop: 24 }}
-        />
-      )}
+
 
       <Alert
         message="系统提示"
