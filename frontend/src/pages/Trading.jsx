@@ -17,6 +17,7 @@ const Trading = () => {
   const [instruments, setInstruments] = useState([]);
   const [ticker, setTicker] = useState(null);
   const [orderMode, setOrderMode] = useState('percentage'); // 'percentage' or 'fixed'
+  const [slTpMode, setSlTpMode] = useState('percentage'); // 'percentage' or 'price' for stop-loss/take-profit
 
   useEffect(() => {
     loadAccounts();
@@ -63,6 +64,41 @@ const Trading = () => {
     try {
       setLoading(true);
       
+      // Calculate stop-loss and take-profit prices from percentages
+      let slTriggerPx = values.sl_trigger_px;
+      let tpTriggerPx = values.tp_trigger_px;
+      
+      if (slTpMode === 'percentage') {
+        const currentPrice = values.current_price || (ticker ? parseFloat(ticker.last) : null);
+        if (!currentPrice) {
+          message.error('无法获取当前价格，请选择合约后再提交');
+          setLoading(false);
+          return;
+        }
+        
+        // Calculate stop-loss price (percentage below entry for long, above for short)
+        if (values.sl_percentage) {
+          if (values.side === 'buy') {
+            // Long position: stop-loss below entry price
+            slTriggerPx = (currentPrice * (1 - values.sl_percentage / 100)).toFixed(2);
+          } else {
+            // Short position: stop-loss above entry price
+            slTriggerPx = (currentPrice * (1 + values.sl_percentage / 100)).toFixed(2);
+          }
+        }
+        
+        // Calculate take-profit price (percentage above entry for long, below for short)
+        if (values.tp_percentage) {
+          if (values.side === 'buy') {
+            // Long position: take-profit above entry price
+            tpTriggerPx = (currentPrice * (1 + values.tp_percentage / 100)).toFixed(2);
+          } else {
+            // Short position: take-profit below entry price
+            tpTriggerPx = (currentPrice * (1 - values.tp_percentage / 100)).toFixed(2);
+          }
+        }
+      }
+      
       let result;
       if (orderMode === 'percentage') {
         // Place order by percentage
@@ -76,8 +112,8 @@ const Trading = () => {
           ord_type: values.ord_type,
           td_mode: values.td_mode,
           pos_side: values.pos_side,
-          sl_trigger_px: values.sl_trigger_px?.toString(),
-          tp_trigger_px: values.tp_trigger_px?.toString(),
+          sl_trigger_px: slTriggerPx?.toString(),
+          tp_trigger_px: tpTriggerPx?.toString(),
         });
       } else {
         // Place order with fixed size
@@ -90,9 +126,9 @@ const Trading = () => {
           px: values.px?.toString(),
           td_mode: values.td_mode,
           pos_side: values.pos_side,
-          sl_trigger_px: values.sl_trigger_px?.toString(),
+          sl_trigger_px: slTriggerPx?.toString(),
           sl_ord_px: values.sl_ord_px?.toString() || '-1',
-          tp_trigger_px: values.tp_trigger_px?.toString(),
+          tp_trigger_px: tpTriggerPx?.toString(),
           tp_ord_px: values.tp_ord_px?.toString() || '-1',
         });
       }
@@ -304,34 +340,78 @@ const Trading = () => {
 
               <Divider>止盈止损设置</Divider>
 
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Form.Item
-                    label="止损触发价格"
-                    name="sl_trigger_px"
-                  >
-                    <InputNumber
-                      style={{ width: '100%' }}
-                      placeholder="止损触发价"
-                      min={0}
-                      step={0.01}
-                    />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item
-                    label="止盈触发价格"
-                    name="tp_trigger_px"
-                  >
-                    <InputNumber
-                      style={{ width: '100%' }}
-                      placeholder="止盈触发价"
-                      min={0}
-                      step={0.01}
-                    />
-                  </Form.Item>
-                </Col>
-              </Row>
+              <Form.Item label="止盈止损模式">
+                <Radio.Group value={slTpMode} onChange={(e) => setSlTpMode(e.target.value)}>
+                  <Radio.Button value="percentage">百分比</Radio.Button>
+                  <Radio.Button value="price">价格</Radio.Button>
+                </Radio.Group>
+              </Form.Item>
+
+              {slTpMode === 'percentage' ? (
+                <Row gutter={16}>
+                  <Col span={12}>
+                    <Form.Item
+                      label="止损百分比 (%)"
+                      name="sl_percentage"
+                      extra="例如: 输入 5 表示价格下跌5%时止损"
+                    >
+                      <InputNumber
+                        style={{ width: '100%' }}
+                        placeholder="止损百分比"
+                        min={0}
+                        max={100}
+                        step={0.1}
+                        addonAfter="%"
+                      />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item
+                      label="止盈百分比 (%)"
+                      name="tp_percentage"
+                      extra="例如: 输入 10 表示价格上涨10%时止盈"
+                    >
+                      <InputNumber
+                        style={{ width: '100%' }}
+                        placeholder="止盈百分比"
+                        min={0}
+                        max={1000}
+                        step={0.1}
+                        addonAfter="%"
+                      />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              ) : (
+                <Row gutter={16}>
+                  <Col span={12}>
+                    <Form.Item
+                      label="止损触发价格"
+                      name="sl_trigger_px"
+                    >
+                      <InputNumber
+                        style={{ width: '100%' }}
+                        placeholder="止损触发价"
+                        min={0}
+                        step={0.01}
+                      />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item
+                      label="止盈触发价格"
+                      name="tp_trigger_px"
+                    >
+                      <InputNumber
+                        style={{ width: '100%' }}
+                        placeholder="止盈触发价"
+                        min={0}
+                        step={0.01}
+                      />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              )}
 
               <Form.Item>
                 <Button type="primary" htmlType="submit" loading={loading} block size="large">
