@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Statistic, Table, Alert, Spin } from 'antd';
 import { DollarOutlined, RiseOutlined, FallOutlined } from '@ant-design/icons';
-import { accountAPI } from '../services/api';
+import { accountAPI, historyAPI } from '../services/api';
 
 const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [accounts, setAccounts] = useState([]);
   const [balanceData, setBalanceData] = useState({});
   const [positionData, setPositionData] = useState({});
+  const [dailyPnlData, setDailyPnlData] = useState({});
 
   useEffect(() => {
     loadData();
@@ -29,6 +30,23 @@ const Dashboard = () => {
       // Get positions
       const positions = await accountAPI.getPositions(accountList);
       setPositionData(positions.data || {});
+      
+      // Get today's P&L summary
+      const today = new Date();
+      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const todayEnd = new Date();
+      
+      try {
+        const pnlRes = await historyAPI.getPnLSummary({
+          account_names: accountList,
+          inst_type: 'SWAP',
+          begin: todayStart.getTime().toString(),
+          end: todayEnd.getTime().toString()
+        });
+        setDailyPnlData(pnlRes.data || {});
+      } catch (err) {
+        console.error('Failed to load daily P&L:', err);
+      }
       
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -137,6 +155,7 @@ const Dashboard = () => {
     // If positions API is available and working, use it
     let accountRealizedPnl = 0;
     let accountTotalPnl = 0;
+    let todayRealizedPnl = 0;
     
     if (positions?.code === '0' && positions.data && positions.data.length > 0) {
       positionCount = positions.data.length;
@@ -150,6 +169,16 @@ const Dashboard = () => {
       });
     }
     
+    // Get today's realized P&L from daily analytics
+    const dailyPnl = dailyPnlData[accountName];
+    if (dailyPnl?.code === '0' && dailyPnl.data) {
+      todayRealizedPnl = parseFloat(dailyPnl.data.total_pnl || 0);
+      // If we have today's P&L, use it for total calculation
+      if (todayRealizedPnl !== 0) {
+        accountTotalPnl = todayRealizedPnl + accountPnL;
+      }
+    }
+    
     // Calculate PnL ratio
     const pnlRatio = accountBalance > 0 ? (accountTotalPnl / accountBalance) * 100 : 0;
 
@@ -161,6 +190,7 @@ const Dashboard = () => {
       frozenBal: accountFrozenBal,
       pnl: accountPnL,
       realizedPnl: accountRealizedPnl,
+      todayPnl: todayRealizedPnl,
       totalPnl: accountTotalPnl,
       pnlRatio: pnlRatio,
       positions: positionCount,
@@ -232,11 +262,21 @@ const Dashboard = () => {
       },
     },
     {
-      title: '已实现盈亏',
+      title: '当日已实现盈亏',
+      dataIndex: 'todayPnl',
+      key: 'todayPnl',
+      render: (val) => (
+        <span style={{ color: val >= 0 ? 'green' : 'red', fontWeight: 'bold', fontSize: '14px' }}>
+          {val >= 0 ? '+' : ''}${val.toFixed(2)}
+        </span>
+      ),
+    },
+    {
+      title: '持仓已实现盈亏',
       dataIndex: 'realizedPnl',
       key: 'realizedPnl',
       render: (val) => (
-        <span style={{ color: val >= 0 ? 'green' : 'red', fontWeight: 'bold' }}>
+        <span style={{ color: val >= 0 ? 'green' : 'red' }}>
           {val >= 0 ? '+' : ''}${val.toFixed(2)}
         </span>
       ),
@@ -328,6 +368,102 @@ const Dashboard = () => {
           </Card>
         </Col>
       </Row>
+      
+      {/* 当日盈亏汇总 */}
+      {(() => {
+        let todayTotalPnl = 0;
+        let todayTotalFee = 0;
+        let todayNetPnl = 0;
+        
+        Object.keys(dailyPnlData).forEach(accountName => {
+          const pnl = dailyPnlData[accountName];
+          if (pnl?.code === '0' && pnl.data) {
+            todayTotalPnl += parseFloat(pnl.data.total_pnl || 0);
+            todayTotalFee += parseFloat(pnl.data.total_fee || 0);
+            todayNetPnl += parseFloat(pnl.data.net_pnl || 0);
+          }
+        });
+        
+        const pnlPercentage = totalBalance > 0 ? (todayNetPnl / totalBalance) * 100 : 0;
+        
+        return (
+          <Card 
+            title={
+              <span style={{ fontSize: '18px', fontWeight: 'bold' }}>
+                📊 当日盈亏汇总 (Today's P&L)
+              </span>
+            } 
+            style={{ marginTop: 24, background: '#fafafa' }}
+          >
+            <Row gutter={16}>
+              <Col span={6}>
+                <Card style={{ background: todayNetPnl >= 0 ? '#f6ffed' : '#fff2f0' }}>
+                  <Statistic
+                    title={<span style={{ fontWeight: 'bold' }}>净盈亏 (Net P&L)</span>}
+                    value={todayNetPnl}
+                    precision={2}
+                    prefix="$"
+                    valueStyle={{ 
+                      color: todayNetPnl >= 0 ? '#3f8600' : '#cf1322', 
+                      fontWeight: 'bold',
+                      fontSize: '24px'
+                    }}
+                  />
+                </Card>
+              </Col>
+              <Col span={6}>
+                <Card>
+                  <Statistic
+                    title="盈亏百分比 (P&L %)"
+                    value={pnlPercentage}
+                    precision={2}
+                    suffix="%"
+                    valueStyle={{ 
+                      color: pnlPercentage >= 0 ? '#3f8600' : '#cf1322',
+                      fontWeight: 'bold'
+                    }}
+                  />
+                </Card>
+              </Col>
+              <Col span={6}>
+                <Card>
+                  <Statistic
+                    title="已实现盈亏 (Realized P&L)"
+                    value={todayTotalPnl}
+                    precision={2}
+                    prefix="$"
+                    valueStyle={{ color: todayTotalPnl >= 0 ? '#3f8600' : '#cf1322' }}
+                  />
+                </Card>
+              </Col>
+              <Col span={6}>
+                <Card>
+                  <Statistic
+                    title="总手续费 (Total Fee)"
+                    value={todayTotalFee}
+                    precision={2}
+                    prefix="$"
+                    valueStyle={{ color: '#ff7a45' }}
+                  />
+                </Card>
+              </Col>
+            </Row>
+            <Alert
+              message="说明"
+              description={
+                <div>
+                  <p>• <strong>净盈亏 (Net P&L)</strong> = 已实现盈亏 - 总手续费</p>
+                  <p>• <strong>盈亏百分比 (P&L %)</strong> = 净盈亏 / 总账户余额 × 100%</p>
+                  <p>• 数据包含所有账户今日的交易盈亏，包括已平仓和部分平仓的实际盈亏</p>
+                </div>
+              }
+              type="info"
+              showIcon
+              style={{ marginTop: 16 }}
+            />
+          </Card>
+        );
+      })()}
 
       <Card title="账户概览" style={{ marginTop: 24 }}>
         <Table
