@@ -165,11 +165,63 @@ const Trading = () => {
     try {
       setLoading(true);
       
+      // Get current price from ticker or use trigger price as reference
+      const currentPrice = ticker ? parseFloat(ticker.last) : parseFloat(values.trigger_px);
+      
+      if (!currentPrice) {
+        message.error('无法获取当前价格，请先选择合约');
+        setLoading(false);
+        return;
+      }
+
+      // Get account balance to calculate position size
+      const balanceResponse = await accountAPI.getBalance(values.account_names);
+      
+      if (balanceResponse.code !== '0') {
+        message.error('获取账户余额失败');
+        setLoading(false);
+        return;
+      }
+
+      // Calculate available balance (USDT)
+      let totalAvailableBalance = 0;
+      Object.values(balanceResponse.data).forEach(accountData => {
+        if (accountData.code === '0' && accountData.data) {
+          accountData.data.forEach(balanceInfo => {
+            balanceInfo.details?.forEach(detail => {
+              if (detail.ccy === 'USDT') {
+                totalAvailableBalance += parseFloat(detail.availBal || 0);
+              }
+            });
+          });
+        }
+      });
+
+      if (totalAvailableBalance === 0) {
+        message.error('账户可用余额不足');
+        setLoading(false);
+        return;
+      }
+
+      // Calculate position size based on percentage and leverage
+      const percentage = values.percentage || 50;
+      const leverage = values.leverage || 1;
+      const positionValue = totalAvailableBalance * (percentage / 100) * leverage;
+      
+      // Calculate contract size (for SWAP, 1 contract = 1 USD value)
+      const sz = Math.floor(positionValue / currentPrice);
+
+      if (sz < 1) {
+        message.error('计算出的合约数量小于1，请增加仓位比例或杠杆');
+        setLoading(false);
+        return;
+      }
+
       const result = await tradingAPI.placeConditionalOrder({
         account_names: values.account_names,
         inst_id: values.inst_id,
         side: values.side,
-        sz: values.sz?.toString(),
+        sz: sz.toString(),
         trigger_px: values.trigger_px?.toString(),
         order_px: values.order_px?.toString() || '-1',
         td_mode: values.td_mode,
@@ -177,7 +229,7 @@ const Trading = () => {
       });
 
       if (result.code === '0') {
-        message.success('条件单提交成功（不占用资金）');
+        message.success(`条件单提交成功（不占用资金）- 数量：${sz}张`);
         conditionalForm.resetFields();
       } else {
         message.error(`条件单提交失败: ${result.msg}`);
@@ -501,6 +553,8 @@ const Trading = () => {
                         onFinish={handleConditionalOrderSubmit}
                         initialValues={{
                           td_mode: 'cross',
+                          percentage: 50,
+                          leverage: 10,
                         }}
                       >
                         <Form.Item
@@ -566,20 +620,35 @@ const Trading = () => {
                           </Col>
                         </Row>
 
+                        <Form.Item
+                          label="仓位比例"
+                          name="percentage"
+                          rules={[{ required: true, message: '请选择仓位比例' }]}
+                          extra="选择使用多少比例的可用余额（条件单不占用资金，仅用于计算触发后的开仓数量）"
+                        >
+                          <Select placeholder="选择仓位比例">
+                            {POSITION_SIZE_PRESETS.map(p => (
+                              <Option key={p} value={p}>{p}%</Option>
+                            ))}
+                          </Select>
+                        </Form.Item>
+
+                        <Alert
+                          message="数量计算说明"
+                          description={
+                            <div>
+                              系统将根据：<strong>可用余额 × 仓位比例 × 杠杆 ÷ 当前价格</strong> 自动计算合约数量。
+                              <br />
+                              例如：余额$1000，50%仓位，10倍杠杆，BTC价格$50000 → 合约数量 = 1000 × 0.5 × 10 ÷ 50000 = 0.1张
+                            </div>
+                          }
+                          type="success"
+                          showIcon
+                          closable
+                          style={{ marginBottom: 16 }}
+                        />
+
                         <Row gutter={16}>
-                          <Col span={12}>
-                            <Form.Item
-                              label="数量（张）"
-                              name="sz"
-                              rules={[{ required: true, message: '请输入数量' }]}
-                            >
-                              <InputNumber
-                                style={{ width: '100%' }}
-                                placeholder="合约数量"
-                                min={1}
-                              />
-                            </Form.Item>
-                          </Col>
                           <Col span={12}>
                             <Form.Item
                               label="触发价格"
@@ -592,6 +661,20 @@ const Trading = () => {
                                 placeholder="触发价"
                                 min={0}
                                 step={0.01}
+                              />
+                            </Form.Item>
+                          </Col>
+                          <Col span={12}>
+                            <Form.Item
+                              label="杠杆倍数"
+                              name="leverage"
+                              extra="设置杠杆倍数（1-125x）"
+                            >
+                              <InputNumber
+                                style={{ width: '100%' }}
+                                placeholder="杠杆倍数"
+                                min={1}
+                                max={125}
                               />
                             </Form.Item>
                           </Col>
