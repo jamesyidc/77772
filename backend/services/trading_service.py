@@ -61,31 +61,34 @@ class TradingService:
         }
         
         # Place main order
-        order_params = {
-            "instId": inst_id,
-            "tdMode": td_mode,
-            "side": side,
-            "ordType": ord_type,
-            "sz": size
-        }
+        # Build kwargs for additional parameters
+        order_kwargs = {}
         
         if px:
-            order_params["px"] = px
+            order_kwargs["px"] = px
         if pos_side:
-            order_params["posSide"] = pos_side
+            order_kwargs["pos_side"] = pos_side
         
         # Add inline stop loss and take profit if provided
         if sl_trigger_px:
-            order_params["slTriggerPx"] = sl_trigger_px
+            order_kwargs["slTriggerPx"] = sl_trigger_px
             if sl_ord_px:
-                order_params["slOrdPx"] = sl_ord_px
+                order_kwargs["slOrdPx"] = sl_ord_px
         
         if tp_trigger_px:
-            order_params["tpTriggerPx"] = tp_trigger_px
+            order_kwargs["tpTriggerPx"] = tp_trigger_px
             if tp_ord_px:
-                order_params["tpOrdPx"] = tp_ord_px
+                order_kwargs["tpOrdPx"] = tp_ord_px
         
-        main_order = self.client.place_order(**order_params)
+        # Call place_order with positional arguments
+        main_order = self.client.place_order(
+            inst_id=inst_id,
+            td_mode=td_mode,
+            side=side,
+            ord_type=ord_type,
+            sz=size,
+            **order_kwargs
+        )
         result["main_order"] = main_order
         
         # If main order succeeded and SL/TP not included inline, place algo orders
