@@ -11,10 +11,11 @@ from backend.config.config import config
 class OKXClient:
     """OKX API Client for trading operations"""
     
-    def __init__(self, api_key: str, secret_key: str, passphrase: str):
+    def __init__(self, api_key: str, secret_key: str, passphrase: str, simulated: bool = False):
         self.api_key = api_key
         self.secret_key = secret_key
         self.passphrase = passphrase
+        self.simulated = simulated  # True for demo trading, False for real trading
         self.auth = OKXAuth(api_key, secret_key, passphrase)
         self.base_url = config.OKX_API_URL
         self.timeout = config.REQUEST_TIMEOUT
@@ -36,8 +37,19 @@ class OKXClient:
         url = f"{self.base_url}{endpoint}"
         body = json.dumps(data) if data else ''
         
-        # Get authentication headers
-        headers = self.auth.get_headers(method, endpoint, body)
+        # Build request path with query string for signature
+        request_path = endpoint
+        if params:
+            # Convert params dict to query string
+            query_string = '&'.join([f"{k}={v}" for k, v in params.items()])
+            request_path = f"{endpoint}?{query_string}"
+        
+        # Get authentication headers (must include query string in signature)
+        headers = self.auth.get_headers(method, request_path, body)
+        
+        # Add x-simulated-trading header for demo/real trading
+        # 0 = real trading (default), 1 = simulated/demo trading
+        headers['x-simulated-trading'] = '1' if self.simulated else '0'
         
         try:
             response = requests.request(

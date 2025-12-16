@@ -55,13 +55,17 @@ class Config:
             api_key = env_vars.get(f"{prefix}_API_KEY")
             secret_key = env_vars.get(f"{prefix}_SECRET_KEY")
             passphrase = env_vars.get(f"{prefix}_PASSPHRASE")
+            # Check if this is a simulated/demo trading account
+            simulated_str = env_vars.get(f"{prefix}_SIMULATED", "false").lower()
+            simulated = simulated_str in ('true', '1', 'yes')
             
             if api_key and secret_key and passphrase:
                 accounts[prefix] = {
                     "api_key": api_key,
                     "secret_key": secret_key,
                     "passphrase": passphrase,
-                    "name": prefix
+                    "name": prefix,
+                    "simulated": simulated
                 }
         
         return accounts

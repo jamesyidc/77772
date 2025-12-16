@@ -24,10 +24,13 @@ class AccountManager:
         """Load all configured accounts"""
         accounts_config = config.get_accounts()
         for name, credentials in accounts_config.items():
+            # Check if this is a simulated/demo account
+            simulated = credentials.get("simulated", False)
             self.accounts[name] = OKXClient(
                 api_key=credentials["api_key"],
                 secret_key=credentials["secret_key"],
-                passphrase=credentials["passphrase"]
+                passphrase=credentials["passphrase"],
+                simulated=simulated
             )
     
     def get_account(self, account_name: str) -> Optional[OKXClient]:
