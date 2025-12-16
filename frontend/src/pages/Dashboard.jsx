@@ -112,10 +112,31 @@ const Dashboard = () => {
       key: 'account',
     },
     {
+      title: 'API状态',
+      dataIndex: 'apiStatus',
+      key: 'apiStatus',
+      render: (_, record) => {
+        const balance = balanceData[record.account];
+        if (!balance) {
+          return <span style={{ color: 'orange' }}>⚠️ 加载中</span>;
+        }
+        if (balance.code === '0') {
+          return <span style={{ color: 'green' }}>✅ 已连接</span>;
+        }
+        return <span style={{ color: 'red' }}>❌ API错误</span>;
+      },
+    },
+    {
       title: '账户余额 (USDT)',
       dataIndex: 'balance',
       key: 'balance',
-      render: (val) => `$${val.toFixed(2)}`,
+      render: (val, record) => {
+        const balance = balanceData[record.account];
+        if (balance?.code !== '0') {
+          return <span style={{ color: 'red' }}>API未连接</span>;
+        }
+        return `$${val.toFixed(2)}`;
+      },
     },
     {
       title: '未实现盈亏',
@@ -188,6 +209,32 @@ const Dashboard = () => {
           pagination={false}
         />
       </Card>
+
+      {/* API连接状态警告 */}
+      {Object.entries(balanceData).some(([_, data]) => data.code !== '0') && (
+        <Alert
+          message="⚠️ API连接异常"
+          description={
+            <div>
+              <p>以下账户API连接失败，余额显示可能不准确：</p>
+              <ul>
+                {Object.entries(balanceData)
+                  .filter(([_, data]) => data.code !== '0')
+                  .map(([accountName, data]) => (
+                    <li key={accountName}>
+                      <strong>{accountName}</strong>: {data.msg || 'API认证失败'}
+                    </li>
+                  ))}
+              </ul>
+              <p>请检查账户API配置，参考 JAMESYI_ACCOUNT_SETUP.md 文档排查问题。</p>
+            </div>
+          }
+          type="error"
+          showIcon
+          closable
+          style={{ marginTop: 24 }}
+        />
+      )}
 
       <Alert
         message="系统提示"
