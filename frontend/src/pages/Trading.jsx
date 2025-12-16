@@ -75,31 +75,41 @@ const Trading = () => {
       
       if (slTpMode === 'percentage') {
         const currentPrice = values.current_price || (ticker ? parseFloat(ticker.last) : null);
+        const leverage = values.leverage || 1;
+        
         if (!currentPrice) {
           message.error('无法获取当前价格，请选择合约后再提交');
           setLoading(false);
           return;
         }
         
-        // Calculate stop-loss price (percentage below entry for long, above for short)
+        // Calculate stop-loss price based on actual P&L percentage
+        // Formula: actual P&L% = price change% × leverage
+        // So: price change% = actual P&L% / leverage
         if (values.sl_percentage) {
+          const priceChangePercent = values.sl_percentage / leverage;
           if (values.side === 'buy') {
             // Long position: stop-loss below entry price
-            slTriggerPx = (currentPrice * (1 - values.sl_percentage / 100)).toFixed(2);
+            // Example: 10x leverage, 5% loss → price drops 0.5%
+            slTriggerPx = (currentPrice * (1 - priceChangePercent / 100)).toFixed(2);
           } else {
             // Short position: stop-loss above entry price
-            slTriggerPx = (currentPrice * (1 + values.sl_percentage / 100)).toFixed(2);
+            // Example: 10x leverage, 5% loss → price rises 0.5%
+            slTriggerPx = (currentPrice * (1 + priceChangePercent / 100)).toFixed(2);
           }
         }
         
-        // Calculate take-profit price (percentage above entry for long, below for short)
+        // Calculate take-profit price based on actual P&L percentage
         if (values.tp_percentage) {
+          const priceChangePercent = values.tp_percentage / leverage;
           if (values.side === 'buy') {
             // Long position: take-profit above entry price
-            tpTriggerPx = (currentPrice * (1 + values.tp_percentage / 100)).toFixed(2);
+            // Example: 10x leverage, 10% profit → price rises 1%
+            tpTriggerPx = (currentPrice * (1 + priceChangePercent / 100)).toFixed(2);
           } else {
             // Short position: take-profit below entry price
-            tpTriggerPx = (currentPrice * (1 - values.tp_percentage / 100)).toFixed(2);
+            // Example: 10x leverage, 10% profit → price drops 1%
+            tpTriggerPx = (currentPrice * (1 - priceChangePercent / 100)).toFixed(2);
           }
         }
       }
@@ -382,9 +392,18 @@ const Trading = () => {
 
               <Divider>止盈止损设置</Divider>
 
+              <Alert
+                message="止盈止损说明"
+                description="百分比基于实际盈亏计算。例如：10倍杠杆，设置5%止损，则价格变动0.5%时触发止损。"
+                type="info"
+                showIcon
+                closable
+                style={{ marginBottom: 16 }}
+              />
+
               <Form.Item label="止盈止损模式">
                 <Radio.Group value={slTpMode} onChange={(e) => setSlTpMode(e.target.value)}>
-                  <Radio.Button value="percentage">百分比</Radio.Button>
+                  <Radio.Button value="percentage">实际盈亏百分比</Radio.Button>
                   <Radio.Button value="price">价格</Radio.Button>
                 </Radio.Group>
               </Form.Item>
@@ -395,14 +414,14 @@ const Trading = () => {
                     <Form.Item
                       label="止损百分比 (%)"
                       name="sl_percentage"
-                      extra="选择止损百分比"
+                      extra="基于实际盈亏，例如：5% = 亏损5%时平仓"
                     >
                       <Select
                         placeholder="选择止损百分比"
                         allowClear
                       >
                         {STOP_LOSS_PRESETS.map(p => (
-                          <Option key={p} value={p}>{p}%</Option>
+                          <Option key={p} value={p}>{p}% 亏损</Option>
                         ))}
                       </Select>
                     </Form.Item>
@@ -411,14 +430,14 @@ const Trading = () => {
                     <Form.Item
                       label="止盈百分比 (%)"
                       name="tp_percentage"
-                      extra="选择止盈百分比"
+                      extra="基于实际盈亏，例如：10% = 盈利10%时平仓"
                     >
                       <Select
                         placeholder="选择止盈百分比"
                         allowClear
                       >
                         {TAKE_PROFIT_PRESETS.map(p => (
-                          <Option key={p} value={p}>{p}%</Option>
+                          <Option key={p} value={p}>{p}% 盈利</Option>
                         ))}
                       </Select>
                     </Form.Item>
