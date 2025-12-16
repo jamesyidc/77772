@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Card, Form, Select, Input, Button, InputNumber, Switch, message,
-  Radio, Space, Divider, Alert, Row, Col
+  Radio, Space, Divider, Alert, Row, Col, Tabs
 } from 'antd';
 import { accountAPI, tradingAPI, marketAPI } from '../services/api';
 import { filterInstruments, getShortName } from '../config/instruments';
@@ -9,15 +9,20 @@ import { filterInstruments, getShortName } from '../config/instruments';
 const { Option } = Select;
 
 const POSITION_SIZE_PRESETS = [10, 20, 25, 33, 50, 66, 100];
+const STOP_LOSS_PRESETS = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50];
+const TAKE_PROFIT_PRESETS = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50];
 
 const Trading = () => {
   const [form] = Form.useForm();
+  const [conditionalForm] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [accounts, setAccounts] = useState([]);
   const [instruments, setInstruments] = useState([]);
   const [ticker, setTicker] = useState(null);
+  const [orderType, setOrderType] = useState('normal'); // 'normal' or 'conditional'
   const [orderMode, setOrderMode] = useState('percentage'); // 'percentage' or 'fixed'
   const [slTpMode, setSlTpMode] = useState('percentage'); // 'percentage' or 'price' for stop-loss/take-profit
+  const [activeTab, setActiveTab] = useState('normal'); // 'normal' or 'conditional'
 
   useEffect(() => {
     loadAccounts();
@@ -146,13 +151,50 @@ const Trading = () => {
     }
   };
 
+  const handleConditionalOrderSubmit = async (values) => {
+    try {
+      setLoading(true);
+      
+      const result = await tradingAPI.placeConditionalOrder({
+        account_names: values.account_names,
+        inst_id: values.inst_id,
+        side: values.side,
+        sz: values.sz?.toString(),
+        trigger_px: values.trigger_px?.toString(),
+        order_px: values.order_px?.toString() || '-1',
+        td_mode: values.td_mode,
+        pos_side: values.pos_side,
+      });
+
+      if (result.code === '0') {
+        message.success('条件单提交成功（不占用资金）');
+        conditionalForm.resetFields();
+      } else {
+        message.error(`条件单提交失败: ${result.msg}`);
+      }
+    } catch (error) {
+      message.error(`条件单提交失败: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div>
       <h1>交易</h1>
       
       <Row gutter={16}>
         <Col span={16}>
-          <Card title="下单" style={{ marginTop: 24 }}>
+          <Card style={{ marginTop: 24 }}>
+            <Tabs
+              activeKey={activeTab}
+              onChange={setActiveTab}
+              items={[
+                {
+                  key: 'normal',
+                  label: '开仓交易',
+                  children: (
+                    <div>
             <Form
               form={form}
               layout="vertical"
@@ -353,32 +395,32 @@ const Trading = () => {
                     <Form.Item
                       label="止损百分比 (%)"
                       name="sl_percentage"
-                      extra="例如: 输入 5 表示价格下跌5%时止损"
+                      extra="选择止损百分比"
                     >
-                      <InputNumber
-                        style={{ width: '100%' }}
-                        placeholder="止损百分比"
-                        min={0}
-                        max={100}
-                        step={0.1}
-                        addonAfter="%"
-                      />
+                      <Select
+                        placeholder="选择止损百分比"
+                        allowClear
+                      >
+                        {STOP_LOSS_PRESETS.map(p => (
+                          <Option key={p} value={p}>{p}%</Option>
+                        ))}
+                      </Select>
                     </Form.Item>
                   </Col>
                   <Col span={12}>
                     <Form.Item
                       label="止盈百分比 (%)"
                       name="tp_percentage"
-                      extra="例如: 输入 10 表示价格上涨10%时止盈"
+                      extra="选择止盈百分比"
                     >
-                      <InputNumber
-                        style={{ width: '100%' }}
-                        placeholder="止盈百分比"
-                        min={0}
-                        max={1000}
-                        step={0.1}
-                        addonAfter="%"
-                      />
+                      <Select
+                        placeholder="选择止盈百分比"
+                        allowClear
+                      >
+                        {TAKE_PROFIT_PRESETS.map(p => (
+                          <Option key={p} value={p}>{p}%</Option>
+                        ))}
+                      </Select>
                     </Form.Item>
                   </Col>
                 </Row>
@@ -419,6 +461,157 @@ const Trading = () => {
                 </Button>
               </Form.Item>
             </Form>
+                    </div>
+                  ),
+                },
+                {
+                  key: 'conditional',
+                  label: '条件单（不占用资金）',
+                  children: (
+                    <div>
+                      <Alert
+                        message="条件单说明"
+                        description="条件单是预设订单，当市场价格达到触发价时自动执行。条件单不会占用账户资金，适合用于抄底或逃顶。"
+                        type="info"
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                      />
+                      <Form
+                        form={conditionalForm}
+                        layout="vertical"
+                        onFinish={handleConditionalOrderSubmit}
+                        initialValues={{
+                          td_mode: 'cross',
+                        }}
+                      >
+                        <Form.Item
+                          label="账户选择"
+                          name="account_names"
+                          rules={[{ required: true, message: '请选择账户' }]}
+                        >
+                          <Select
+                            mode="multiple"
+                            placeholder="选择一个或多个账户"
+                            allowClear
+                          >
+                            {accounts.map(acc => (
+                              <Option key={acc} value={acc}>{acc}</Option>
+                            ))}
+                          </Select>
+                        </Form.Item>
+
+                        <Form.Item
+                          label="合约"
+                          name="inst_id"
+                          rules={[{ required: true, message: '请选择合约' }]}
+                        >
+                          <Select
+                            showSearch
+                            placeholder="选择合约 (例如: BTC-USDT-SWAP)"
+                            onChange={handleInstrumentChange}
+                            filterOption={(input, option) =>
+                              option.children.toLowerCase().includes(input.toLowerCase())
+                            }
+                          >
+                            {instruments.map(inst => (
+                              <Option key={inst.instId} value={inst.instId}>
+                                {inst.instId}
+                              </Option>
+                            ))}
+                          </Select>
+                        </Form.Item>
+
+                        <Row gutter={16}>
+                          <Col span={12}>
+                            <Form.Item
+                              label="方向"
+                              name="side"
+                              rules={[{ required: true, message: '请选择方向' }]}
+                            >
+                              <Radio.Group>
+                                <Radio.Button value="buy" style={{ color: 'green' }}>做多</Radio.Button>
+                                <Radio.Button value="sell" style={{ color: 'red' }}>做空</Radio.Button>
+                              </Radio.Group>
+                            </Form.Item>
+                          </Col>
+                          <Col span={12}>
+                            <Form.Item
+                              label="保证金模式"
+                              name="td_mode"
+                            >
+                              <Select>
+                                <Option value="cross">全仓</Option>
+                                <Option value="isolated">逐仓</Option>
+                              </Select>
+                            </Form.Item>
+                          </Col>
+                        </Row>
+
+                        <Row gutter={16}>
+                          <Col span={12}>
+                            <Form.Item
+                              label="数量（张）"
+                              name="sz"
+                              rules={[{ required: true, message: '请输入数量' }]}
+                            >
+                              <InputNumber
+                                style={{ width: '100%' }}
+                                placeholder="合约数量"
+                                min={1}
+                              />
+                            </Form.Item>
+                          </Col>
+                          <Col span={12}>
+                            <Form.Item
+                              label="触发价格"
+                              name="trigger_px"
+                              rules={[{ required: true, message: '请输入触发价格' }]}
+                              extra="当市场价格达到此价格时触发订单"
+                            >
+                              <InputNumber
+                                style={{ width: '100%' }}
+                                placeholder="触发价"
+                                min={0}
+                                step={0.01}
+                              />
+                            </Form.Item>
+                          </Col>
+                        </Row>
+
+                        <Form.Item
+                          label="委托价格"
+                          name="order_px"
+                          extra="触发后的委托价格，留空或-1表示市价"
+                        >
+                          <InputNumber
+                            style={{ width: '100%' }}
+                            placeholder="委托价（-1为市价）"
+                            min={-1}
+                            step={0.01}
+                          />
+                        </Form.Item>
+
+                        <Form.Item
+                          label="持仓方向"
+                          name="pos_side"
+                        >
+                          <Select placeholder="单向持仓可留空" allowClear>
+                            <Option value="long">多</Option>
+                            <Option value="short">空</Option>
+                          </Select>
+                        </Form.Item>
+
+                        <Form.Item>
+                          <Button type="primary" htmlType="submit" loading={loading} block size="large">
+                            提交条件单（不占用资金）
+                          </Button>
+                        </Form.Item>
+                      </Form>
+                    </div>
+                  ),
+                },
+              ]}
+            />
           </Card>
         </Col>
 
