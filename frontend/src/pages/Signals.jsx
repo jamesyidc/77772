@@ -554,6 +554,7 @@ const Signals = () => {
                 </div>
               )}
             </div>
+          </Card>
         </Col>
 
         {/* Support-Resistance Card - 支撑阻力信号 */}
