@@ -1,8 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Card, Statistic, Row, Col, Space, Spin, Tag, Badge } from 'antd';
-import { ReloadOutlined, ClockCircleOutlined, WarningOutlined, RiseOutlined, FallOutlined } from '@ant-design/icons';
+import { Card, Statistic, Row, Col, Space, Spin, Tag, Badge, Modal, Form, Input, Button, message } from 'antd';
+import { ReloadOutlined, ClockCircleOutlined, WarningOutlined, RiseOutlined, FallOutlined, SettingOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import './Signals.css';
+
+// Default URLs
+const DEFAULT_URLS = {
+  panic: 'https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/panic',
+  query: 'https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/query',
+  supportResistance: 'https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/support-resistance'
+};
 
 const Signals = () => {
   // Panic Buy data (持仓量监控)
@@ -20,6 +27,14 @@ const Signals = () => {
   const [srLoading, setSrLoading] = useState(false);
   const [srLastUpdate, setSrLastUpdate] = useState(null);
   
+  // Settings
+  const [settingsVisible, setSettingsVisible] = useState(false);
+  const [urls, setUrls] = useState(() => {
+    const savedUrls = localStorage.getItem('signal_urls');
+    return savedUrls ? JSON.parse(savedUrls) : DEFAULT_URLS;
+  });
+  const [form] = Form.useForm();
+  
   const panicIntervalRef = useRef(null);
   const queryIntervalRef = useRef(null);
   const srIntervalRef = useRef(null);
@@ -30,10 +45,10 @@ const Signals = () => {
     loadQueryData();
     loadSRData();
     
-    // Set up auto-refresh for panic data every 30 seconds
+    // Set up auto-refresh for panic data every 3 minutes (180 seconds)
     panicIntervalRef.current = setInterval(() => {
       loadPanicData(false);
-    }, 30000);
+    }, 180000);
 
     // Set up auto-refresh for query data every 10 minutes
     queryIntervalRef.current = setInterval(() => {
@@ -64,19 +79,12 @@ const Signals = () => {
         setPanicLoading(true);
       }
       
-      const response = await axios.get('https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/panic');
+      const response = await axios.get(urls.panic);
       
-      // Check if data is valid and 持仓量 < 92亿
+      // Always show data regardless of threshold
       if (response.data) {
-        const openInterest = parseFloat(response.data.openInterest || response.data.持仓量 || 0);
-        
-        // Only show if < 9.2 billion (92亿 = 9200000000)
-        if (openInterest < 9200000000) {
-          setPanicData(response.data);
-          setPanicLastUpdate(new Date());
-        } else {
-          setPanicData(null);
-        }
+        setPanicData(response.data);
+        setPanicLastUpdate(new Date());
       }
     } catch (error) {
       console.error('Failed to load panic data:', error);
@@ -94,7 +102,7 @@ const Signals = () => {
         setQueryLoading(true);
       }
       
-      const response = await axios.get('https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/query');
+      const response = await axios.get(urls.query);
       
       if (response.data && Array.isArray(response.data)) {
         // Only keep the latest 10 records
@@ -122,7 +130,7 @@ const Signals = () => {
         setSrLoading(true);
       }
       
-      const response = await axios.get('https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/support-resistance');
+      const response = await axios.get(urls.supportResistance);
       
       if (response.data) {
         const now = Date.now();
@@ -207,8 +215,95 @@ const Signals = () => {
     }
   };
 
+  const handleSettingsOpen = () => {
+    form.setFieldsValue(urls);
+    setSettingsVisible(true);
+  };
+
+  const handleSettingsSave = async () => {
+    try {
+      const values = await form.validateFields();
+      setUrls(values);
+      localStorage.setItem('signal_urls', JSON.stringify(values));
+      setSettingsVisible(false);
+      message.success('配置已保存，正在刷新数据...');
+      
+      // Reload all data with new URLs
+      loadPanicData(true);
+      loadQueryData(true);
+      loadSRData(true);
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      message.error('保存失败');
+    }
+  };
+
+  const handleSettingsReset = () => {
+    form.setFieldsValue(DEFAULT_URLS);
+  };
+
   return (
     <div className="signals-page">
+      {/* Settings Modal */}
+      <Modal
+        title="信号源配置"
+        open={settingsVisible}
+        onOk={handleSettingsSave}
+        onCancel={() => setSettingsVisible(false)}
+        width={700}
+        okText="保存"
+        cancelText="取消"
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          initialValues={urls}
+        >
+          <Form.Item
+            label="持仓量监控数据源 (Panic Monitor URL)"
+            name="panic"
+            rules={[{ required: true, message: '请输入URL' }, { type: 'url', message: '请输入有效的URL' }]}
+          >
+            <Input placeholder="https://..." />
+          </Form.Item>
+          
+          <Form.Item
+            label="交易信号数据源 (Trading Signals URL)"
+            name="query"
+            rules={[{ required: true, message: '请输入URL' }, { type: 'url', message: '请输入有效的URL' }]}
+          >
+            <Input placeholder="https://..." />
+          </Form.Item>
+          
+          <Form.Item
+            label="支撑阻力信号数据源 (Support-Resistance URL)"
+            name="supportResistance"
+            rules={[{ required: true, message: '请输入URL' }, { type: 'url', message: '请输入有效的URL' }]}
+          >
+            <Input placeholder="https://..." />
+          </Form.Item>
+          
+          <Space>
+            <Button onClick={handleSettingsReset}>恢复默认</Button>
+            <span style={{ color: '#999', fontSize: '12px' }}>
+              提示：修改后将立即刷新所有数据
+            </span>
+          </Space>
+        </Form>
+      </Modal>
+      
+      {/* Global Settings Button */}
+      <div style={{ marginBottom: 24, textAlign: 'right' }}>
+        <Button 
+          type="primary" 
+          icon={<SettingOutlined />}
+          onClick={handleSettingsOpen}
+          size="large"
+        >
+          配置信号源
+        </Button>
+      </div>
+      
       <Row gutter={[24, 24]}>
         {/* Panic Buy Card - 持仓量监控 */}
         <Col span={24}>
@@ -226,7 +321,7 @@ const Signals = () => {
             }
             extra={
               <Space>
-                <Tag color="orange">30秒刷新</Tag>
+                <Tag color="orange">3分钟刷新</Tag>
                 <ReloadOutlined 
                   spin={panicLoading}
                   onClick={() => loadPanicData(true)}
@@ -303,19 +398,39 @@ const Signals = () => {
                     </Card>
                   </Col>
                 </Row>
-                <div style={{ marginTop: 16, padding: 12, background: '#fff7e6', borderRadius: 4, border: '1px solid #ffd591' }}>
-                  <Space>
-                    <WarningOutlined style={{ color: '#fa8c16' }} />
-                    <span style={{ color: '#d46b08' }}>
-                      <strong>预警条件：</strong>全网持仓量 &lt; 92亿时触发显示
-                    </span>
-                  </Space>
-                </div>
+                {(() => {
+                  const openInterest = parseFloat(panicData.持仓量 || panicData.openInterest || 0);
+                  const isAlert = openInterest < 9200000000 && openInterest > 0;
+                  return (
+                    <div style={{ 
+                      marginTop: 16, 
+                      padding: 12, 
+                      background: isAlert ? '#fff7e6' : '#e6f7ff', 
+                      borderRadius: 4, 
+                      border: isAlert ? '1px solid #ffd591' : '1px solid #91d5ff' 
+                    }}>
+                      <Space>
+                        {isAlert ? (
+                          <WarningOutlined style={{ color: '#fa8c16' }} />
+                        ) : (
+                          <ClockCircleOutlined style={{ color: '#1890ff' }} />
+                        )}
+                        <span style={{ color: isAlert ? '#d46b08' : '#0050b3' }}>
+                          <strong>{isAlert ? '⚠️ 预警：' : 'ℹ️ 说明：'}</strong>
+                          {isAlert 
+                            ? `当前持仓量 ${formatNumber(openInterest)} < 92亿，市场可能出现恐慌` 
+                            : `当前持仓量 ${formatNumber(openInterest)}，市场持仓正常`
+                          }
+                        </span>
+                      </Space>
+                    </div>
+                  );
+                })()}
               </div>
             ) : (
               <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
-                <p style={{ fontSize: '16px' }}>当前持仓量正常（≥ 92亿）</p>
-                <p style={{ fontSize: '14px', marginTop: 8 }}>持仓量低于 92亿 时将显示详细数据</p>
+                <p style={{ fontSize: '16px' }}>暂无数据</p>
+                <p style={{ fontSize: '14px', marginTop: 8 }}>等待数据加载...</p>
               </div>
             )}
           </Card>
