@@ -364,6 +364,27 @@ const Signals = () => {
               </div>
             ) : panicData ? (
               <div className="panic-content">
+                {/* 表头 */}
+                <div style={{ 
+                  marginBottom: 16, 
+                  padding: '12px 16px', 
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  borderRadius: '8px',
+                  color: 'white',
+                  fontWeight: 'bold',
+                  fontSize: '16px',
+                  display: 'flex',
+                  justifyContent: 'space-around',
+                  flexWrap: 'wrap',
+                  gap: '8px'
+                }}>
+                  <div style={{ flex: '1 1 150px', textAlign: 'center' }}>恐慌清洗指数</div>
+                  <div style={{ flex: '1 1 150px', textAlign: 'center' }}>1小时爆仓金额</div>
+                  <div style={{ flex: '1 1 150px', textAlign: 'center' }}>24小时爆仓金额</div>
+                  <div style={{ flex: '1 1 150px', textAlign: 'center' }}>24小时爆仓人数</div>
+                  <div style={{ flex: '1 1 150px', textAlign: 'center' }}>全网持仓量</div>
+                  <div style={{ flex: '1 1 150px', textAlign: 'center' }}>最后更新</div>
+                </div>
                 <Row gutter={[16, 16]}>
                   <Col xs={24} sm={12} md={8}>
                     <Card>
@@ -465,9 +486,46 @@ const Signals = () => {
                 })()}
               </div>
             ) : (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
-                <p style={{ fontSize: '16px' }}>暂无数据</p>
-                <p style={{ fontSize: '14px', marginTop: 8 }}>等待数据加载...</p>
+              <div>
+                {/* 表头 - 始终显示 */}
+                <div style={{ 
+                  marginBottom: 16, 
+                  padding: '12px 16px', 
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  borderRadius: '8px',
+                  color: 'white',
+                  fontWeight: 'bold',
+                  fontSize: '16px',
+                  display: 'flex',
+                  justifyContent: 'space-around',
+                  flexWrap: 'wrap',
+                  gap: '8px'
+                }}>
+                  <div style={{ flex: '1 1 150px', textAlign: 'center' }}>恐慌清洗指数</div>
+                  <div style={{ flex: '1 1 150px', textAlign: 'center' }}>1小时爆仓金额</div>
+                  <div style={{ flex: '1 1 150px', textAlign: 'center' }}>24小时爆仓金额</div>
+                  <div style={{ flex: '1 1 150px', textAlign: 'center' }}>24小时爆仓人数</div>
+                  <div style={{ flex: '1 1 150px', textAlign: 'center' }}>全网持仓量</div>
+                  <div style={{ flex: '1 1 150px', textAlign: 'center' }}>最后更新</div>
+                </div>
+                <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
+                  <p style={{ fontSize: '16px' }}>暂无数据</p>
+                  <p style={{ fontSize: '14px', marginTop: 8 }}>
+                    正在等待数据加载... 
+                    <br />
+                    <span style={{ fontSize: '12px', color: '#bbb' }}>
+                      数据源: {urls.panic}
+                    </span>
+                  </p>
+                  <Button 
+                    type="primary" 
+                    icon={<ReloadOutlined />}
+                    onClick={() => loadPanicData(true)}
+                    style={{ marginTop: 16 }}
+                  >
+                    手动刷新
+                  </Button>
+                </div>
               </div>
             )}
           </Card>
