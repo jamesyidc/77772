@@ -4,11 +4,11 @@ import { ReloadOutlined, ClockCircleOutlined, WarningOutlined, RiseOutlined, Fal
 import axios from 'axios';
 import './Signals.css';
 
-// Default URLs - Using JSON API endpoints
+// Default URLs - Using backend proxy to avoid CORS
 const DEFAULT_URLS = {
-  panic: 'https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/api/panic/latest',
-  query: 'https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/api/latest',
-  supportResistance: 'https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/api/support-resistance/latest-signal'
+  panic: '/api/v1/proxy/panic',
+  query: '/api/v1/proxy/query',
+  supportResistance: '/api/v1/proxy/support-resistance'
 };
 
 const Signals = () => {

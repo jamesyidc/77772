@@ -487,3 +487,43 @@ async def get_signal_source():
             "url": signal_service.signal_source_url
         }
     }
+
+
+# ==================== Signal Data Proxy ====================
+
+import httpx
+
+@router.get("/proxy/panic")
+async def proxy_panic_data():
+    """Proxy panic monitor data to avoid CORS issues"""
+    url = "https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/api/panic/latest"
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, timeout=10.0)
+            return response.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch panic data: {str(e)}")
+
+
+@router.get("/proxy/query")
+async def proxy_query_data():
+    """Proxy trading signals query data to avoid CORS issues"""
+    url = "https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/api/latest"
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, timeout=10.0)
+            return response.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch query data: {str(e)}")
+
+
+@router.get("/proxy/support-resistance")
+async def proxy_sr_data():
+    """Proxy support-resistance data to avoid CORS issues"""
+    url = "https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/api/support-resistance/latest-signal"
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, timeout=10.0)
+            return response.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch support-resistance data: {str(e)}")
