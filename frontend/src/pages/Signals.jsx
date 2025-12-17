@@ -368,62 +368,70 @@ const Signals = () => {
                   <Col xs={24} sm={12} md={8}>
                     <Card>
                       <Statistic
-                        title="24小时涨跌幅"
-                        value={panicData['24h涨跌幅'] || panicData.change24h || '-'}
+                        title="恐慌清洗指数"
+                        value={(panicData.panic_index || panicData.恐慌指数 || 0).toFixed(2)}
                         suffix="%"
                         valueStyle={{ 
-                          color: parseFloat(panicData['24h涨跌幅'] || 0) >= 0 ? '#52c41a' : '#ff4d4f',
-                          fontSize: '32px'
+                          fontSize: '28px', 
+                          fontWeight: 'bold',
+                          color: panicData.panic_index > 15 ? '#cf1322' : panicData.panic_index > 10 ? '#fa8c16' : '#52c41a' 
                         }}
                       />
+                      <div style={{ marginTop: 8, fontSize: '12px', color: '#999' }}>
+                        {panicData.panic_level || '正常'}
+                      </div>
                     </Card>
                   </Col>
                   <Col xs={24} sm={12} md={8}>
                     <Card>
                       <Statistic
-                        title="24小时成交额"
-                        value={formatNumber(panicData['24h成交额'] || panicData.volume24h || 0)}
-                        valueStyle={{ fontSize: '28px' }}
+                        title="1小时爆仓金额"
+                        value={(panicData.hour_1_amount || 0).toFixed(2)}
+                        suffix="万美元"
+                        valueStyle={{ fontSize: '28px', color: '#fa8c16' }}
                       />
                     </Card>
                   </Col>
                   <Col xs={24} sm={12} md={8}>
                     <Card>
                       <Statistic
-                        title="24小时成交量"
-                        value={parseFloat(panicData['24h成交量'] || panicData.volume || 0).toFixed(2)}
-                        valueStyle={{ fontSize: '28px' }}
+                        title="24小时爆仓金额"
+                        value={(panicData.hour_24_amount || 0).toFixed(2)}
+                        suffix="万美元"
+                        valueStyle={{ fontSize: '28px', color: '#ff4d4f' }}
                       />
                     </Card>
                   </Col>
                   <Col xs={24} sm={12} md={8}>
                     <Card>
                       <Statistic
-                        title="持仓量"
-                        value={formatNumber((panicData.total_position || panicData.持仓量 || panicData.openInterest || 0) * 100000000)}
-                        suffix="USDT"
-                        valueStyle={{ fontSize: '28px', color: '#1890ff' }}
+                        title="24小时爆仓人数"
+                        value={(panicData.hour_24_people || 0).toFixed(2)}
+                        suffix="万人"
+                        valueStyle={{ fontSize: '28px', color: '#722ed1' }}
                       />
                     </Card>
                   </Col>
                   <Col xs={24} sm={12} md={8}>
                     <Card>
                       <Statistic
-                        title="持仓人数"
-                        value={formatNumber((panicData.hour_24_people || panicData.持仓人数 || panicData.holders || 0) * 10000)}
-                        suffix="人"
-                        valueStyle={{ fontSize: '28px' }}
+                        title="全网持仓量"
+                        value={(panicData.total_position || panicData.持仓量 || 0).toFixed(2)}
+                        suffix="亿美元"
+                        valueStyle={{ fontSize: '28px', color: '#1890ff', fontWeight: 'bold' }}
                       />
                     </Card>
                   </Col>
                   <Col xs={24} sm={12} md={8}>
                     <Card>
                       <Statistic
-                        title="恐慌指数"
-                        value={panicData.panic_index || panicData.恐慌指数 || 0}
-                        suffix="%"
-                        valueStyle={{ fontSize: '28px', color: panicData.panic_index > 15 ? '#cf1322' : panicData.panic_index > 10 ? '#fa8c16' : '#52c41a' }}
+                        title="最后更新"
+                        value={panicData.record_time || '-'}
+                        valueStyle={{ fontSize: '16px', color: '#666' }}
                       />
+                      <div style={{ marginTop: 8, fontSize: '12px', color: '#999' }}>
+                        {panicData.market_zone || '-'}
+                      </div>
                     </Card>
                   </Col>
                 </Row>
