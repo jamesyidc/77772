@@ -4,11 +4,11 @@ import { ReloadOutlined, ClockCircleOutlined, WarningOutlined, RiseOutlined, Fal
 import axios from 'axios';
 import './Signals.css';
 
-// Default URLs
+// Default URLs - Using JSON API endpoints
 const DEFAULT_URLS = {
-  panic: 'https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/panic',
-  query: 'https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/query',
-  supportResistance: 'https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/support-resistance'
+  panic: 'https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/api/panic/latest',
+  query: 'https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/api/latest',
+  supportResistance: 'https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/api/support-resistance/latest-signal'
 };
 
 const Signals = () => {
@@ -81,8 +81,12 @@ const Signals = () => {
       
       const response = await axios.get(urls.panic);
       
-      // Always show data regardless of threshold
-      if (response.data) {
+      // Handle API response format: {success: true, data: {...}}
+      if (response.data && response.data.success && response.data.data) {
+        setPanicData(response.data.data);
+        setPanicLastUpdate(new Date());
+      } else if (response.data) {
+        // Fallback for direct data
         setPanicData(response.data);
         setPanicLastUpdate(new Date());
       }
@@ -104,8 +108,13 @@ const Signals = () => {
       
       const response = await axios.get(urls.query);
       
-      if (response.data && Array.isArray(response.data)) {
+      // Handle API response: {coins: [...]}
+      if (response.data && response.data.coins && Array.isArray(response.data.coins)) {
         // Only keep the latest 10 records
+        const latestRecords = response.data.coins.slice(0, 10);
+        setQueryData(latestRecords);
+        setQueryLastUpdate(new Date());
+      } else if (response.data && Array.isArray(response.data)) {
         const latestRecords = response.data.slice(0, 10);
         setQueryData(latestRecords);
         setQueryLastUpdate(new Date());
@@ -132,48 +141,66 @@ const Signals = () => {
       
       const response = await axios.get(urls.supportResistance);
       
-      if (response.data) {
-        const now = Date.now();
-        const oneHourAgo = now - 60 * 60 * 1000; // 1 hour in milliseconds
-        
+      if (response.data && response.data.success) {
+        // API returns format: {signals: {buy: bool, sell: bool}, scenario_X_coins: [...]}
         let buySignals = [];
         let sellSignals = [];
         
-        // Parse the response data
+        // Collect all scenario coins
+        const allCoins = [
+          ...(response.data.scenario_1_coins || []),
+          ...(response.data.scenario_2_coins || []),
+          ...(response.data.scenario_3_coins || []),
+          ...(response.data.scenario_4_coins || [])
+        ];
+        
+        // For now, treat all coins as signals
+        // You can customize logic based on scenario types
+        if (response.data.signals) {
+          if (response.data.signals.buy || response.data.signals.sell) {
+            // Categorize by position (closer to support = buy, closer to resistance = sell)
+            allCoins.forEach(coin => {
+              const position = parseFloat(coin.position || 0);
+              if (position < 50) {
+                // Closer to support line (抄底信号)
+                buySignals.push({
+                  symbol: coin.symbol,
+                  price: coin.current_price,
+                  time: response.data.snapshot_time,
+                  position: position,
+                  distance: coin.distance
+                });
+              } else {
+                // Closer to resistance line (逃顶信号)
+                sellSignals.push({
+                  symbol: coin.symbol,
+                  price: coin.current_price,
+                  time: response.data.snapshot_time,
+                  position: position,
+                  distance: coin.distance,
+                  resistance: coin.resistance_line
+                });
+              }
+            });
+          }
+        }
+        
+        // Also parse any legacy format
         if (response.data.抄底 && Array.isArray(response.data.抄底)) {
-          buySignals = response.data.抄底;
+          buySignals = [...buySignals, ...response.data.抄底];
         } else if (response.data.buy && Array.isArray(response.data.buy)) {
-          buySignals = response.data.buy;
+          buySignals = [...buySignals, ...response.data.buy];
         }
         
         if (response.data.逃顶 && Array.isArray(response.data.逃顶)) {
-          sellSignals = response.data.逃顶;
+          sellSignals = [...sellSignals, ...response.data.逃顶];
         } else if (response.data.sell && Array.isArray(response.data.sell)) {
-          sellSignals = response.data.sell;
+          sellSignals = [...sellSignals, ...response.data.sell];
         }
         
-        // Filter signals from last 1 hour and remove duplicates
-        const filterAndDeduplicate = (signals) => {
-          const filtered = signals.filter(signal => {
-            const signalTime = new Date(signal.时间 || signal.timestamp || signal.time).getTime();
-            return signalTime >= oneHourAgo;
-          });
-          
-          // Deduplicate by time + price
-          const seen = new Set();
-          return filtered.filter(signal => {
-            const key = `${signal.时间 || signal.timestamp || signal.time}_${signal.价格 || signal.price}`;
-            if (seen.has(key)) {
-              return false;
-            }
-            seen.add(key);
-            return true;
-          });
-        };
-        
         setSrData({
-          buy: filterAndDeduplicate(buySignals),
-          sell: filterAndDeduplicate(sellSignals)
+          buy: buySignals,
+          sell: sellSignals
         });
         setSrLastUpdate(new Date());
       }
@@ -373,7 +400,8 @@ const Signals = () => {
                     <Card>
                       <Statistic
                         title="持仓量"
-                        value={formatNumber(panicData.持仓量 || panicData.openInterest || 0)}
+                        value={formatNumber((panicData.total_position || panicData.持仓量 || panicData.openInterest || 0) * 100000000)}
+                        suffix="USDT"
                         valueStyle={{ fontSize: '28px', color: '#1890ff' }}
                       />
                     </Card>
@@ -382,7 +410,8 @@ const Signals = () => {
                     <Card>
                       <Statistic
                         title="持仓人数"
-                        value={formatNumber(panicData.持仓人数 || panicData.holders || 0)}
+                        value={formatNumber((panicData.hour_24_people || panicData.持仓人数 || panicData.holders || 0) * 10000)}
+                        suffix="人"
                         valueStyle={{ fontSize: '28px' }}
                       />
                     </Card>
@@ -390,16 +419,16 @@ const Signals = () => {
                   <Col xs={24} sm={12} md={8}>
                     <Card>
                       <Statistic
-                        title="持仓量占比"
-                        value={panicData.持仓量占比 || panicData.openInterestRatio || '-'}
+                        title="恐慌指数"
+                        value={panicData.panic_index || panicData.恐慌指数 || 0}
                         suffix="%"
-                        valueStyle={{ fontSize: '28px' }}
+                        valueStyle={{ fontSize: '28px', color: panicData.panic_index > 15 ? '#cf1322' : panicData.panic_index > 10 ? '#fa8c16' : '#52c41a' }}
                       />
                     </Card>
                   </Col>
                 </Row>
                 {(() => {
-                  const openInterest = parseFloat(panicData.持仓量 || panicData.openInterest || 0);
+                  const openInterest = parseFloat((panicData.total_position || panicData.持仓量 || panicData.openInterest || 0) * 100000000);
                   const isAlert = openInterest < 9200000000 && openInterest > 0;
                   return (
                     <div style={{ 
@@ -468,25 +497,25 @@ const Signals = () => {
                 marginBottom: 16, 
                 fontWeight: 'bold', 
                 display: 'grid', 
-                gridTemplateColumns: '140px 60px 60px 80px 80px 60px 60px 80px 60px 60px 60px 100px 100px 80px 80px', 
+                gridTemplateColumns: '140px 60px 60px 80px 80px 60px 80px 80px 80px 80px 100px 100px 80px 80px', 
                 gap: '8px', 
                 padding: '12px', 
                 background: '#fafafa', 
                 borderRadius: '4px',
-                minWidth: '1400px'
+                minWidth: '1300px'
               }}>
-                <div>运算时间</div>
+                <div>币种</div>
                 <div>急涨</div>
                 <div>急跌</div>
                 <div>本轮急涨</div>
                 <div>本轮急跌</div>
-                <div>计次</div>
-                <div>计次得分</div>
+                <div>排名</div>
+                <div>优先级</div>
                 <div>状态</div>
-                <div>比值</div>
-                <div>差值</div>
-                <div>比价最低</div>
-                <div>比价创新高</div>
+                <div>比值1</div>
+                <div>跌幅%</div>
+                <div>当前价格</div>
+                <div>历史最高</div>
                 <div>24h涨≥10%</div>
                 <div>24h跌≤-10%</div>
               </div>
@@ -503,39 +532,38 @@ const Signals = () => {
                     className="query-item"
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: '140px 60px 60px 80px 80px 60px 60px 80px 60px 60px 60px 100px 100px 80px 80px',
+                      gridTemplateColumns: '140px 60px 60px 80px 80px 60px 80px 80px 80px 80px 100px 100px 80px 80px',
                       gap: '8px',
                       padding: '12px',
                       borderBottom: '1px solid #f0f0f0',
                       fontSize: '13px',
-                      minWidth: '1400px'
+                      minWidth: '1300px'
                     }}
                   >
-                    <div style={{ color: '#666' }}>{item.运算时间 || item.timestamp || formatTime(item.time) || '-'}</div>
-                    <div style={{ color: item.急涨 > 0 ? '#52c41a' : '#666' }}>{item.急涨 ?? '-'}</div>
-                    <div style={{ color: item.急跌 > 0 ? '#ff4d4f' : '#666' }}>{item.急跌 ?? '-'}</div>
-                    <div style={{ color: item.本轮急涨 > 0 ? '#52c41a' : '#666', fontWeight: 'bold' }}>{item.本轮急涨 ?? '-'}</div>
-                    <div style={{ color: item.本轮急跌 > 0 ? '#ff4d4f' : '#666', fontWeight: 'bold' }}>{item.本轮急跌 ?? '-'}</div>
-                    <div>{item.计次 ?? '-'}</div>
-                    <div>{item.计次得分 || '-'}</div>
+                    <div style={{ color: '#666', fontWeight: 'bold' }}>{item.symbol || item.运算时间 || item.update_time || '-'}</div>
+                    <div style={{ color: (item.rush_up || item.急涨 || 0) > 0 ? '#52c41a' : '#666' }}>{item.rush_up ?? item.急涨 ?? '-'}</div>
+                    <div style={{ color: (item.rush_down || item.急跌 || 0) > 0 ? '#ff4d4f' : '#666' }}>{item.rush_down ?? item.急跌 ?? '-'}</div>
+                    <div style={{ color: (item.本轮急涨 || 0) > 0 ? '#52c41a' : '#666', fontWeight: 'bold' }}>{item.本轮急涨 ?? '-'}</div>
+                    <div style={{ color: (item.本轮急跌 || 0) > 0 ? '#ff4d4f' : '#666', fontWeight: 'bold' }}>{item.本轮急跌 ?? '-'}</div>
+                    <div>{item.rank || item.计次 ?? '-'}</div>
+                    <div>{item.priority || item.计次得分 || '-'}</div>
                     <div>
                       <Tag color={
-                        item.状态 === '震荡无序' ? 'orange' :
-                        item.状态 === '急涨' ? 'green' :
-                        item.状态 === '急跌' ? 'red' : 'default'
+                        (item.change || 0) > 5 ? 'green' :
+                        (item.change || 0) < -5 ? 'red' : 'orange'
                       }>
-                        {item.状态 || '-'}
+                        {(item.change || 0) > 5 ? '急涨' : (item.change || 0) < -5 ? '急跌' : '震荡'}
                       </Tag>
                     </div>
-                    <div>{item.比值 ?? '-'}</div>
+                    <div>{item.ratio1 || item.比值 || '-'}</div>
                     <div style={{ 
-                      color: item.差值 > 0 ? '#52c41a' : item.差值 < 0 ? '#ff4d4f' : '#666',
-                      fontWeight: item.差值 !== 0 ? 'bold' : 'normal'
-                    }}>{item.差值 ?? '-'}</div>
-                    <div>{item.比价最低 ?? '-'}</div>
-                    <div>{item.比价创新高 ?? '-'}</div>
-                    <div style={{ color: item['24h涨≥10%'] > 0 ? '#52c41a' : '#666' }}>{item['24h涨≥10%'] ?? '-'}</div>
-                    <div style={{ color: item['24h跌≤-10%'] > 0 ? '#ff4d4f' : '#666' }}>{item['24h跌≤-10%'] ?? '-'}</div>
+                      color: (item.decline || item.差值 || 0) > 0 ? '#52c41a' : (item.decline || item.差值 || 0) < 0 ? '#ff4d4f' : '#666',
+                      fontWeight: (item.decline || item.差值 || 0) !== 0 ? 'bold' : 'normal'
+                    }}>{(item.decline || item.差值)?.toFixed(2) ?? '-'}</div>
+                    <div>{item.current_price?.toFixed(2) || item.比价最低 || '-'}</div>
+                    <div>{item.high_price?.toFixed(2) || item.比价创新高 || '-'}</div>
+                    <div style={{ color: (item.change_24h || 0) >= 10 ? '#52c41a' : '#666' }}>{(item.change_24h || 0) >= 10 ? '是' : '-'}</div>
+                    <div style={{ color: (item.change_24h || 0) <= -10 ? '#ff4d4f' : '#666' }}>{(item.change_24h || 0) <= -10 ? '是' : '-'}</div>
                   </div>
                 ))}
                 <div style={{ marginTop: 16, textAlign: 'center', color: '#999', fontSize: '12px' }}>
