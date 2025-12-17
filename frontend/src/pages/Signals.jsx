@@ -17,18 +17,21 @@ const Signals = () => {
   const [panicLoading, setPanicLoading] = useState(false);
   const [panicLastUpdate, setPanicLastUpdate] = useState(null);
   const [panicCountdown, setPanicCountdown] = useState(180); // 3 minutes in seconds
+  const panicLastUpdateRef = useRef(null);
   
   // Query data (信号数据)
   const [queryData, setQueryData] = useState([]);
   const [queryLoading, setQueryLoading] = useState(false);
   const [queryLastUpdate, setQueryLastUpdate] = useState(null);
   const [queryCountdown, setQueryCountdown] = useState(600); // 10 minutes in seconds
+  const queryLastUpdateRef = useRef(null);
   
   // Support-Resistance data (支撑阻力信号)
   const [srData, setSrData] = useState({ buy: [], sell: [] });
   const [srLoading, setSrLoading] = useState(false);
   const [srLastUpdate, setSrLastUpdate] = useState(null);
   const [srCountdown, setSrCountdown] = useState(30); // 30 seconds
+  const srLastUpdateRef = useRef(null);
   
   // Settings
   const [settingsVisible, setSettingsVisible] = useState(false);
@@ -68,10 +71,27 @@ const Signals = () => {
     }, 30000);
 
     // Set up countdown timer (updates every second)
+    // Calculate countdown based on actual last update time
     countdownIntervalRef.current = setInterval(() => {
-      setPanicCountdown(prev => Math.max(0, prev - 1));
-      setQueryCountdown(prev => Math.max(0, prev - 1));
-      setSrCountdown(prev => Math.max(0, prev - 1));
+      const now = new Date();
+      
+      // Panic countdown
+      if (panicLastUpdateRef.current) {
+        const elapsed = Math.floor((now - panicLastUpdateRef.current) / 1000);
+        setPanicCountdown(Math.max(0, 180 - elapsed));
+      }
+      
+      // Query countdown
+      if (queryLastUpdateRef.current) {
+        const elapsed = Math.floor((now - queryLastUpdateRef.current) / 1000);
+        setQueryCountdown(Math.max(0, 600 - elapsed));
+      }
+      
+      // SR countdown
+      if (srLastUpdateRef.current) {
+        const elapsed = Math.floor((now - srLastUpdateRef.current) / 1000);
+        setSrCountdown(Math.max(0, 30 - elapsed));
+      }
     }, 1000);
 
     return () => {
@@ -99,14 +119,17 @@ const Signals = () => {
       const response = await axios.get(urls.panic);
       
       // Handle API response format: {success: true, data: {...}}
+      const now = new Date();
       if (response.data && response.data.success && response.data.data) {
         setPanicData(response.data.data);
-        setPanicLastUpdate(new Date());
+        setPanicLastUpdate(now);
+        panicLastUpdateRef.current = now;
         setPanicCountdown(180); // Reset countdown on manual refresh
       } else if (response.data) {
         // Fallback for direct data
         setPanicData(response.data);
-        setPanicLastUpdate(new Date());
+        setPanicLastUpdate(now);
+        panicLastUpdateRef.current = now;
         setPanicCountdown(180); // Reset countdown on manual refresh
       }
     } catch (error) {
@@ -128,22 +151,26 @@ const Signals = () => {
       const response = await axios.get(urls.query);
       
       // Handle timeline API response: {snapshots: [...]}
+      const now = new Date();
       if (response.data && response.data.snapshots && Array.isArray(response.data.snapshots)) {
         // Only keep the latest 10 records
         const latestRecords = response.data.snapshots.slice(0, 10);
         setQueryData(latestRecords);
-        setQueryLastUpdate(new Date());
+        setQueryLastUpdate(now);
+        queryLastUpdateRef.current = now;
         setQueryCountdown(600); // Reset countdown on manual refresh
       } else if (response.data && response.data.coins && Array.isArray(response.data.coins)) {
         // Fallback for coins format
         const latestRecords = response.data.coins.slice(0, 10);
         setQueryData(latestRecords);
-        setQueryLastUpdate(new Date());
+        setQueryLastUpdate(now);
+        queryLastUpdateRef.current = now;
         setQueryCountdown(600); // Reset countdown on manual refresh
       } else if (response.data && Array.isArray(response.data)) {
         const latestRecords = response.data.slice(0, 10);
         setQueryData(latestRecords);
-        setQueryLastUpdate(new Date());
+        setQueryLastUpdate(now);
+        queryLastUpdateRef.current = now;
         setQueryCountdown(600); // Reset countdown on manual refresh
       }
     } catch (error) {
@@ -221,11 +248,13 @@ const Signals = () => {
           sellSignals = [...sellSignals, ...response.data.sell];
         }
         
+        const now = new Date();
         setSrData({
           buy: buySignals,
           sell: sellSignals
         });
-        setSrLastUpdate(new Date());
+        setSrLastUpdate(now);
+        srLastUpdateRef.current = now;
         setSrCountdown(30); // Reset countdown on manual refresh
       }
     } catch (error) {
