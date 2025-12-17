@@ -71,6 +71,71 @@
   background: #f5f5f5;
 }
 
+/* Support-Resistance Card Styles */
+.sr-card .ant-card-head {
+  background: linear-gradient(135deg, #fa8c16 0%, #faad14 100%);
+}
+
+.sr-content .buy-signals-card,
+.sr-content .sell-signals-card {
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.sr-content .buy-signals-card:hover,
+.sr-content .sell-signals-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.sr-content .signal-item {
+  transition: all 0.3s ease;
+}
+
+.sr-content .signal-item:hover {
+  transform: translateX(4px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.sr-content .buy-signals-card .ant-card-head {
+  background: linear-gradient(135deg, #95de64 0%, #52c41a 100%);
+  border: none;
+}
+
+.sr-content .sell-signals-card .ant-card-head {
+  background: linear-gradient(135deg, #ff7875 0%, #ff4d4f 100%);
+  border: none;
+}
+
+.sr-content .buy-signals-card .ant-card-head-title,
+.sr-content .sell-signals-card .ant-card-head-title {
+  color: white;
+  font-weight: bold;
+}
+
+.sr-content .signal-list {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.sr-content .signal-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sr-content .signal-list::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 3px;
+}
+
+.sr-content .signal-list::-webkit-scrollbar-thumb {
+  background: #d9d9d9;
+  border-radius: 3px;
+}
+
+.sr-content .signal-list::-webkit-scrollbar-thumb:hover {
+  background: #bfbfbf;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .signals-page {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Card, Statistic, Row, Col, Space, Spin, Tag } from 'antd';
-import { ReloadOutlined, ClockCircleOutlined, WarningOutlined } from '@ant-design/icons';
+import { Card, Statistic, Row, Col, Space, Spin, Tag, Badge } from 'antd';
+import { ReloadOutlined, ClockCircleOutlined, WarningOutlined, RiseOutlined, FallOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import './Signals.css';
 
@@ -15,13 +15,20 @@ const Signals = () => {
   const [queryLoading, setQueryLoading] = useState(false);
   const [queryLastUpdate, setQueryLastUpdate] = useState(null);
   
+  // Support-Resistance data (支撑阻力信号)
+  const [srData, setSrData] = useState({ buy: [], sell: [] });
+  const [srLoading, setSrLoading] = useState(false);
+  const [srLastUpdate, setSrLastUpdate] = useState(null);
+  
   const panicIntervalRef = useRef(null);
   const queryIntervalRef = useRef(null);
+  const srIntervalRef = useRef(null);
 
   useEffect(() => {
     // Initial load
     loadPanicData();
     loadQueryData();
+    loadSRData();
     
     // Set up auto-refresh for panic data every 30 seconds
     panicIntervalRef.current = setInterval(() => {
@@ -33,12 +40,20 @@ const Signals = () => {
       loadQueryData(false);
     }, 600000);
 
+    // Set up auto-refresh for support-resistance data every 30 seconds
+    srIntervalRef.current = setInterval(() => {
+      loadSRData(false);
+    }, 30000);
+
     return () => {
       if (panicIntervalRef.current) {
         clearInterval(panicIntervalRef.current);
       }
       if (queryIntervalRef.current) {
         clearInterval(queryIntervalRef.current);
+      }
+      if (srIntervalRef.current) {
+        clearInterval(srIntervalRef.current);
       }
     };
   }, []);
@@ -97,6 +112,69 @@ const Signals = () => {
     } finally {
       if (showLoading) {
         setQueryLoading(false);
+      }
+    }
+  };
+
+  const loadSRData = async (showLoading = true) => {
+    try {
+      if (showLoading) {
+        setSrLoading(true);
+      }
+      
+      const response = await axios.get('https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/support-resistance');
+      
+      if (response.data) {
+        const now = Date.now();
+        const oneHourAgo = now - 60 * 60 * 1000; // 1 hour in milliseconds
+        
+        let buySignals = [];
+        let sellSignals = [];
+        
+        // Parse the response data
+        if (response.data.抄底 && Array.isArray(response.data.抄底)) {
+          buySignals = response.data.抄底;
+        } else if (response.data.buy && Array.isArray(response.data.buy)) {
+          buySignals = response.data.buy;
+        }
+        
+        if (response.data.逃顶 && Array.isArray(response.data.逃顶)) {
+          sellSignals = response.data.逃顶;
+        } else if (response.data.sell && Array.isArray(response.data.sell)) {
+          sellSignals = response.data.sell;
+        }
+        
+        // Filter signals from last 1 hour and remove duplicates
+        const filterAndDeduplicate = (signals) => {
+          const filtered = signals.filter(signal => {
+            const signalTime = new Date(signal.时间 || signal.timestamp || signal.time).getTime();
+            return signalTime >= oneHourAgo;
+          });
+          
+          // Deduplicate by time + price
+          const seen = new Set();
+          return filtered.filter(signal => {
+            const key = `${signal.时间 || signal.timestamp || signal.time}_${signal.价格 || signal.price}`;
+            if (seen.has(key)) {
+              return false;
+            }
+            seen.add(key);
+            return true;
+          });
+        };
+        
+        setSrData({
+          buy: filterAndDeduplicate(buySignals),
+          sell: filterAndDeduplicate(sellSignals)
+        });
+        setSrLastUpdate(new Date());
+      }
+    } catch (error) {
+      console.error('Failed to load support-resistance data:', error);
+      setSrData({ buy: [], sell: [] });
+    } finally {
+      if (showLoading) {
+        setSrLoading(false);
       }
     }
   };
@@ -329,6 +407,190 @@ const Signals = () => {
               <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
                 <p style={{ fontSize: '16px' }}>暂无信号数据</p>
                 <p style={{ fontSize: '14px', marginTop: 8 }}>等待信号源返回数据...</p>
+              </div>
+            )}
+          </Card>
+        </Col>
+
+        {/* Support-Resistance Card - 支撑阻力信号 */}
+        <Col span={24}>
+          <Card
+            title={
+              <Space>
+                <RiseOutlined style={{ color: '#52c41a' }} />
+                <FallOutlined style={{ color: '#ff4d4f' }} />
+                <span style={{ fontSize: '18px', fontWeight: 'bold' }}>支撑阻力信号</span>
+                {srLastUpdate && (
+                  <Tag icon={<ClockCircleOutlined />} color="blue">
+                    {srLastUpdate.toLocaleTimeString('zh-CN')}
+                  </Tag>
+                )}
+              </Space>
+            }
+            extra={
+              <Space>
+                <Tag color="orange">30秒刷新</Tag>
+                <Tag color="purple">1小时窗口</Tag>
+                <ReloadOutlined 
+                  spin={srLoading}
+                  onClick={() => loadSRData(true)}
+                  style={{ cursor: 'pointer', fontSize: '16px' }}
+                />
+              </Space>
+            }
+            className="sr-card"
+          >
+            {srLoading && srData.buy.length === 0 && srData.sell.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                <Spin size="large" tip="加载中..." />
+              </div>
+            ) : (
+              <div className="sr-content">
+                <Row gutter={[16, 16]}>
+                  {/* Buy Signals - 抄底信号 */}
+                  <Col xs={24} lg={12}>
+                    <Card
+                      title={
+                        <Space>
+                          <Badge count={srData.buy.length} showZero>
+                            <RiseOutlined style={{ fontSize: '20px', color: '#52c41a' }} />
+                          </Badge>
+                          <span style={{ color: '#52c41a', fontWeight: 'bold' }}>抄底信号</span>
+                        </Space>
+                      }
+                      className="buy-signals-card"
+                      style={{ background: 'linear-gradient(135deg, #f6ffed 0%, #ffffff 100%)' }}
+                    >
+                      {srData.buy.length > 0 ? (
+                        <div className="signal-list">
+                          {srData.buy.map((signal, index) => (
+                            <div 
+                              key={index}
+                              className="signal-item"
+                              style={{
+                                padding: '12px',
+                                marginBottom: '8px',
+                                background: '#fff',
+                                border: '1px solid #b7eb8f',
+                                borderRadius: '4px',
+                                transition: 'all 0.3s'
+                              }}
+                            >
+                              <Row gutter={[8, 8]}>
+                                <Col span={24}>
+                                  <Space>
+                                    <Tag color="green" icon={<ClockCircleOutlined />}>
+                                      {formatTime(signal.时间 || signal.timestamp || signal.time)}
+                                    </Tag>
+                                  </Space>
+                                </Col>
+                                <Col span={12}>
+                                  <div style={{ fontSize: '12px', color: '#666' }}>价格</div>
+                                  <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#52c41a' }}>
+                                    {signal.价格 || signal.price || '-'}
+                                  </div>
+                                </Col>
+                                <Col span={12}>
+                                  <div style={{ fontSize: '12px', color: '#666' }}>强度</div>
+                                  <div style={{ fontSize: '16px', fontWeight: 'bold' }}>
+                                    {signal.强度 || signal.strength || '-'}
+                                  </div>
+                                </Col>
+                                {(signal.备注 || signal.note || signal.description) && (
+                                  <Col span={24}>
+                                    <div style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
+                                      {signal.备注 || signal.note || signal.description}
+                                    </div>
+                                  </Col>
+                                )}
+                              </Row>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ textAlign: 'center', padding: '20px 0', color: '#999' }}>
+                          <p>暂无抄底信号</p>
+                        </div>
+                      )}
+                    </Card>
+                  </Col>
+
+                  {/* Sell Signals - 逃顶信号 */}
+                  <Col xs={24} lg={12}>
+                    <Card
+                      title={
+                        <Space>
+                          <Badge count={srData.sell.length} showZero>
+                            <FallOutlined style={{ fontSize: '20px', color: '#ff4d4f' }} />
+                          </Badge>
+                          <span style={{ color: '#ff4d4f', fontWeight: 'bold' }}>逃顶信号</span>
+                        </Space>
+                      }
+                      className="sell-signals-card"
+                      style={{ background: 'linear-gradient(135deg, #fff1f0 0%, #ffffff 100%)' }}
+                    >
+                      {srData.sell.length > 0 ? (
+                        <div className="signal-list">
+                          {srData.sell.map((signal, index) => (
+                            <div 
+                              key={index}
+                              className="signal-item"
+                              style={{
+                                padding: '12px',
+                                marginBottom: '8px',
+                                background: '#fff',
+                                border: '1px solid #ffccc7',
+                                borderRadius: '4px',
+                                transition: 'all 0.3s'
+                              }}
+                            >
+                              <Row gutter={[8, 8]}>
+                                <Col span={24}>
+                                  <Space>
+                                    <Tag color="red" icon={<ClockCircleOutlined />}>
+                                      {formatTime(signal.时间 || signal.timestamp || signal.time)}
+                                    </Tag>
+                                  </Space>
+                                </Col>
+                                <Col span={12}>
+                                  <div style={{ fontSize: '12px', color: '#666' }}>价格</div>
+                                  <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#ff4d4f' }}>
+                                    {signal.价格 || signal.price || '-'}
+                                  </div>
+                                </Col>
+                                <Col span={12}>
+                                  <div style={{ fontSize: '12px', color: '#666' }}>强度</div>
+                                  <div style={{ fontSize: '16px', fontWeight: 'bold' }}>
+                                    {signal.强度 || signal.strength || '-'}
+                                  </div>
+                                </Col>
+                                {(signal.备注 || signal.note || signal.description) && (
+                                  <Col span={24}>
+                                    <div style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
+                                      {signal.备注 || signal.note || signal.description}
+                                    </div>
+                                  </Col>
+                                )}
+                              </Row>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ textAlign: 'center', padding: '20px 0', color: '#999' }}>
+                          <p>暂无逃顶信号</p>
+                        </div>
+                      )}
+                    </Card>
+                  </Col>
+                </Row>
+                <div style={{ marginTop: 16, padding: 12, background: '#e6f7ff', borderRadius: 4, border: '1px solid #91d5ff' }}>
+                  <Space>
+                    <ClockCircleOutlined style={{ color: '#1890ff' }} />
+                    <span style={{ color: '#0050b3' }}>
+                      <strong>说明：</strong>显示最近 1 小时内的信号，每 30 秒自动刷新，已自动去重
+                    </span>
+                  </Space>
+                </div>
               </div>
             )}
           </Card>
