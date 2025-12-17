@@ -56,6 +56,25 @@
 .query-content {
   max-width: 100%;
   overflow-x: auto;
+  position: relative;
+}
+
+.query-content::-webkit-scrollbar {
+  height: 8px;
+}
+
+.query-content::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 4px;
+}
+
+.query-content::-webkit-scrollbar-thumb {
+  background: #d9d9d9;
+  border-radius: 4px;
+}
+
+.query-content::-webkit-scrollbar-thumb:hover {
+  background: #bfbfbf;
 }
 
 .query-header {

@@ -352,15 +352,32 @@ const Signals = () => {
                 <Spin size="large" tip="加载中..." />
               </div>
             ) : queryData.length > 0 ? (
-              <div className="query-content">
-                <div className="query-header" style={{ marginBottom: 16, fontWeight: 'bold', display: 'grid', gridTemplateColumns: '80px 120px 120px 120px 120px 120px 1fr', gap: '8px', padding: '12px', background: '#fafafa', borderRadius: '4px' }}>
-                  <div>时间</div>
-                  <div>实例</div>
-                  <div>实际</div>
-                  <div>主标签</div>
-                  <div>次标签</div>
-                  <div>比分</div>
-                  <div>链接</div>
+              <div className="query-content" style={{ overflowX: 'auto' }}>
+                <div className="query-header" style={{ 
+                  marginBottom: 16, 
+                  fontWeight: 'bold', 
+                  display: 'grid', 
+                  gridTemplateColumns: '140px 60px 60px 80px 80px 60px 60px 80px 60px 60px 60px 100px 100px 80px 80px', 
+                  gap: '8px', 
+                  padding: '12px', 
+                  background: '#fafafa', 
+                  borderRadius: '4px',
+                  minWidth: '1400px'
+                }}>
+                  <div>运算时间</div>
+                  <div>急涨</div>
+                  <div>急跌</div>
+                  <div>本轮急涨</div>
+                  <div>本轮急跌</div>
+                  <div>计次</div>
+                  <div>计次得分</div>
+                  <div>状态</div>
+                  <div>比值</div>
+                  <div>差值</div>
+                  <div>比价最低</div>
+                  <div>比价创新高</div>
+                  <div>24h涨≥10%</div>
+                  <div>24h跌≤-10%</div>
                 </div>
                 {queryData.map((item, index) => (
                   <div 
@@ -368,35 +385,39 @@ const Signals = () => {
                     className="query-item"
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: '80px 120px 120px 120px 120px 120px 1fr',
+                      gridTemplateColumns: '140px 60px 60px 80px 80px 60px 60px 80px 60px 60px 60px 100px 100px 80px 80px',
                       gap: '8px',
                       padding: '12px',
                       borderBottom: '1px solid #f0f0f0',
-                      fontSize: '14px'
+                      fontSize: '13px',
+                      minWidth: '1400px'
                     }}
                   >
-                    <div style={{ color: '#666' }}>{formatTime(item.时间 || item.timestamp || item.time)}</div>
-                    <div>{item.实例 || item.instance || '-'}</div>
-                    <div>{item.实际 || item.actual || '-'}</div>
+                    <div style={{ color: '#666' }}>{item.运算时间 || item.timestamp || formatTime(item.time) || '-'}</div>
+                    <div style={{ color: item.急涨 > 0 ? '#52c41a' : '#666' }}>{item.急涨 ?? '-'}</div>
+                    <div style={{ color: item.急跌 > 0 ? '#ff4d4f' : '#666' }}>{item.急跌 ?? '-'}</div>
+                    <div style={{ color: item.本轮急涨 > 0 ? '#52c41a' : '#666', fontWeight: 'bold' }}>{item.本轮急涨 ?? '-'}</div>
+                    <div style={{ color: item.本轮急跌 > 0 ? '#ff4d4f' : '#666', fontWeight: 'bold' }}>{item.本轮急跌 ?? '-'}</div>
+                    <div>{item.计次 ?? '-'}</div>
+                    <div>{item.计次得分 || '-'}</div>
                     <div>
-                      <Tag color="blue">{item.主标签 || item.mainTag || '-'}</Tag>
+                      <Tag color={
+                        item.状态 === '震荡无序' ? 'orange' :
+                        item.状态 === '急涨' ? 'green' :
+                        item.状态 === '急跌' ? 'red' : 'default'
+                      }>
+                        {item.状态 || '-'}
+                      </Tag>
                     </div>
-                    <div>
-                      <Tag color="cyan">{item.次标签 || item.subTag || '-'}</Tag>
-                    </div>
-                    <div style={{ fontWeight: 'bold' }}>{item.比分 || item.score || '-'}</div>
-                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {item.链接 || item.link || item.url ? (
-                        <a 
-                          href={item.链接 || item.link || item.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          style={{ color: '#1890ff' }}
-                        >
-                          查看详情
-                        </a>
-                      ) : '-'}
-                    </div>
+                    <div>{item.比值 ?? '-'}</div>
+                    <div style={{ 
+                      color: item.差值 > 0 ? '#52c41a' : item.差值 < 0 ? '#ff4d4f' : '#666',
+                      fontWeight: item.差值 !== 0 ? 'bold' : 'normal'
+                    }}>{item.差值 ?? '-'}</div>
+                    <div>{item.比价最低 ?? '-'}</div>
+                    <div>{item.比价创新高 ?? '-'}</div>
+                    <div style={{ color: item['24h涨≥10%'] > 0 ? '#52c41a' : '#666' }}>{item['24h涨≥10%'] ?? '-'}</div>
+                    <div style={{ color: item['24h跌≤-10%'] > 0 ? '#ff4d4f' : '#666' }}>{item['24h跌≤-10%'] ?? '-'}</div>
                   </div>
                 ))}
                 <div style={{ marginTop: 16, textAlign: 'center', color: '#999', fontSize: '12px' }}>
