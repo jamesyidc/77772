@@ -462,38 +462,41 @@ const Signals = () => {
             }
             className="query-card"
           >
-            {queryLoading && queryData.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px 0' }}>
-                <Spin size="large" tip="加载中..." />
+            <div className="query-content" style={{ overflowX: 'auto' }}>
+              {/* Always show table headers */}
+              <div className="query-header" style={{ 
+                marginBottom: 16, 
+                fontWeight: 'bold', 
+                display: 'grid', 
+                gridTemplateColumns: '140px 60px 60px 80px 80px 60px 60px 80px 60px 60px 60px 100px 100px 80px 80px', 
+                gap: '8px', 
+                padding: '12px', 
+                background: '#fafafa', 
+                borderRadius: '4px',
+                minWidth: '1400px'
+              }}>
+                <div>运算时间</div>
+                <div>急涨</div>
+                <div>急跌</div>
+                <div>本轮急涨</div>
+                <div>本轮急跌</div>
+                <div>计次</div>
+                <div>计次得分</div>
+                <div>状态</div>
+                <div>比值</div>
+                <div>差值</div>
+                <div>比价最低</div>
+                <div>比价创新高</div>
+                <div>24h涨≥10%</div>
+                <div>24h跌≤-10%</div>
               </div>
-            ) : queryData.length > 0 ? (
-              <div className="query-content" style={{ overflowX: 'auto' }}>
-                <div className="query-header" style={{ 
-                  marginBottom: 16, 
-                  fontWeight: 'bold', 
-                  display: 'grid', 
-                  gridTemplateColumns: '140px 60px 60px 80px 80px 60px 60px 80px 60px 60px 60px 100px 100px 80px 80px', 
-                  gap: '8px', 
-                  padding: '12px', 
-                  background: '#fafafa', 
-                  borderRadius: '4px',
-                  minWidth: '1400px'
-                }}>
-                  <div>运算时间</div>
-                  <div>急涨</div>
-                  <div>急跌</div>
-                  <div>本轮急涨</div>
-                  <div>本轮急跌</div>
-                  <div>计次</div>
-                  <div>计次得分</div>
-                  <div>状态</div>
-                  <div>比值</div>
-                  <div>差值</div>
-                  <div>比价最低</div>
-                  <div>比价创新高</div>
-                  <div>24h涨≥10%</div>
-                  <div>24h跌≤-10%</div>
+              
+              {queryLoading && queryData.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                  <Spin size="large" tip="加载中..." />
                 </div>
+              ) : queryData.length > 0 ? (
+                <div>
                 {queryData.map((item, index) => (
                   <div 
                     key={index} 
@@ -538,14 +541,19 @@ const Signals = () => {
                 <div style={{ marginTop: 16, textAlign: 'center', color: '#999', fontSize: '12px' }}>
                   仅显示最近 10 条数据
                 </div>
-              </div>
-            ) : (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
-                <p style={{ fontSize: '16px' }}>暂无信号数据</p>
-                <p style={{ fontSize: '14px', marginTop: 8 }}>等待信号源返回数据...</p>
-              </div>
-            )}
-          </Card>
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
+                  <p style={{ fontSize: '16px' }}>暂无信号数据</p>
+                  <p style={{ fontSize: '14px', marginTop: 8 }}>
+                    数据源需要返回JSON格式的数组数据
+                  </p>
+                  <p style={{ fontSize: '12px', marginTop: 4, color: '#bbb' }}>
+                    当前URL: {urls.query}
+                  </p>
+                </div>
+              )}
+            </div>
         </Col>
 
         {/* Support-Resistance Card - 支撑阻力信号 */}
