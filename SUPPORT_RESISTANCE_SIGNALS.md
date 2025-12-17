@@ -395,9 +395,13 @@ Currently using direct HTTP calls. Could add backend caching:
 
 **Issue**: Signals not appearing
 - Check data source URL is accessible
-- Verify data format matches expected structure
+- Verify data format matches expected structure (must be JSON, not HTML)
 - Check browser console for errors
 - Confirm time filtering logic
+- **IMPORTANT**: The endpoint `https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/support-resistance` currently returns HTML. You may need to:
+  - Create a JSON API endpoint that returns data in the expected format
+  - Or modify the existing endpoint to support JSON response
+  - Or implement HTML parsing in the frontend
 
 **Issue**: Duplicates showing
 - Verify deduplication logic
