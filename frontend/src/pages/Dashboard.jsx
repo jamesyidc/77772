@@ -180,7 +180,10 @@ const Dashboard = () => {
     }
     
     // Calculate PnL ratio
-    const pnlRatio = accountBalance > 0 ? (accountTotalPnl / accountBalance) * 100 : 0;
+    // Note: accountBalance (eq) = availBal + frozenBal + unrealizedPnL
+    // So for P&L%, we should calculate based on initial capital, not current equity
+    // For now, we'll use a more meaningful metric: todayPnl / accountBalance
+    const pnlRatio = accountBalance > 0 ? (todayRealizedPnl / accountBalance) * 100 : 0;
 
     return {
       key: accountName,
@@ -220,7 +223,15 @@ const Dashboard = () => {
       },
     },
     {
-      title: '总权益 (USDT)',
+      title: (
+        <span>
+          总权益 (USDT)
+          <br />
+          <span style={{ fontSize: '11px', fontWeight: 'normal', color: '#999' }}>
+            可用+占用+浮亏
+          </span>
+        </span>
+      ),
       dataIndex: 'balance',
       key: 'balance',
       render: (val, record) => {
@@ -265,11 +276,18 @@ const Dashboard = () => {
       title: '当日已实现盈亏',
       dataIndex: 'todayPnl',
       key: 'todayPnl',
-      render: (val) => (
-        <span style={{ color: val >= 0 ? 'green' : 'red', fontWeight: 'bold', fontSize: '14px' }}>
-          {val >= 0 ? '+' : ''}${val.toFixed(2)}
-        </span>
-      ),
+      render: (val, record) => {
+        // Show debug info if needed
+        const debugMode = false; // Set to true to see calculation details
+        return (
+          <span 
+            style={{ color: val >= 0 ? 'green' : 'red', fontWeight: 'bold', fontSize: '14px' }}
+            title={debugMode ? `Total Balance: ${record.balance}, Avail: ${record.availBal}, Frozen: ${record.frozenBal}, Unrealized: ${record.pnl}` : ''}
+          >
+            {val >= 0 ? '+' : ''}${val.toFixed(2)}
+          </span>
+        );
+      },
     },
     {
       title: '持仓已实现盈亏',
