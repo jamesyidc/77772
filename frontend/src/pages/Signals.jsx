@@ -545,7 +545,7 @@ const Signals = () => {
                     <div style={{ color: (item.rush_down || item.急跌 || 0) > 0 ? '#ff4d4f' : '#666' }}>{item.rush_down ?? item.急跌 ?? '-'}</div>
                     <div style={{ color: (item.本轮急涨 || 0) > 0 ? '#52c41a' : '#666', fontWeight: 'bold' }}>{item.本轮急涨 ?? '-'}</div>
                     <div style={{ color: (item.本轮急跌 || 0) > 0 ? '#ff4d4f' : '#666', fontWeight: 'bold' }}>{item.本轮急跌 ?? '-'}</div>
-                    <div>{item.rank || item.计次 ?? '-'}</div>
+                    <div>{item.rank ?? item.计次 ?? '-'}</div>
                     <div>{item.priority || item.计次得分 || '-'}</div>
                     <div>
                       <Tag color={
