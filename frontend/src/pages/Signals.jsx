@@ -16,16 +16,19 @@ const Signals = () => {
   const [panicData, setPanicData] = useState(null);
   const [panicLoading, setPanicLoading] = useState(false);
   const [panicLastUpdate, setPanicLastUpdate] = useState(null);
+  const [panicCountdown, setPanicCountdown] = useState(180); // 3 minutes in seconds
   
   // Query data (信号数据)
   const [queryData, setQueryData] = useState([]);
   const [queryLoading, setQueryLoading] = useState(false);
   const [queryLastUpdate, setQueryLastUpdate] = useState(null);
+  const [queryCountdown, setQueryCountdown] = useState(600); // 10 minutes in seconds
   
   // Support-Resistance data (支撑阻力信号)
   const [srData, setSrData] = useState({ buy: [], sell: [] });
   const [srLoading, setSrLoading] = useState(false);
   const [srLastUpdate, setSrLastUpdate] = useState(null);
+  const [srCountdown, setSrCountdown] = useState(30); // 30 seconds
   
   // Settings
   const [settingsVisible, setSettingsVisible] = useState(false);
@@ -38,6 +41,7 @@ const Signals = () => {
   const panicIntervalRef = useRef(null);
   const queryIntervalRef = useRef(null);
   const srIntervalRef = useRef(null);
+  const countdownIntervalRef = useRef(null);
 
   useEffect(() => {
     // Initial load
@@ -48,17 +52,27 @@ const Signals = () => {
     // Set up auto-refresh for panic data every 3 minutes (180 seconds)
     panicIntervalRef.current = setInterval(() => {
       loadPanicData(false);
+      setPanicCountdown(180); // Reset countdown
     }, 180000);
 
     // Set up auto-refresh for query data every 10 minutes
     queryIntervalRef.current = setInterval(() => {
       loadQueryData(false);
+      setQueryCountdown(600); // Reset countdown
     }, 600000);
 
     // Set up auto-refresh for support-resistance data every 30 seconds
     srIntervalRef.current = setInterval(() => {
       loadSRData(false);
+      setSrCountdown(30); // Reset countdown
     }, 30000);
+
+    // Set up countdown timer (updates every second)
+    countdownIntervalRef.current = setInterval(() => {
+      setPanicCountdown(prev => Math.max(0, prev - 1));
+      setQueryCountdown(prev => Math.max(0, prev - 1));
+      setSrCountdown(prev => Math.max(0, prev - 1));
+    }, 1000);
 
     return () => {
       if (panicIntervalRef.current) {
@@ -69,6 +83,9 @@ const Signals = () => {
       }
       if (srIntervalRef.current) {
         clearInterval(srIntervalRef.current);
+      }
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
       }
     };
   }, []);
@@ -85,10 +102,12 @@ const Signals = () => {
       if (response.data && response.data.success && response.data.data) {
         setPanicData(response.data.data);
         setPanicLastUpdate(new Date());
+        setPanicCountdown(180); // Reset countdown on manual refresh
       } else if (response.data) {
         // Fallback for direct data
         setPanicData(response.data);
         setPanicLastUpdate(new Date());
+        setPanicCountdown(180); // Reset countdown on manual refresh
       }
     } catch (error) {
       console.error('Failed to load panic data:', error);
@@ -114,15 +133,18 @@ const Signals = () => {
         const latestRecords = response.data.snapshots.slice(0, 10);
         setQueryData(latestRecords);
         setQueryLastUpdate(new Date());
+        setQueryCountdown(600); // Reset countdown on manual refresh
       } else if (response.data && response.data.coins && Array.isArray(response.data.coins)) {
         // Fallback for coins format
         const latestRecords = response.data.coins.slice(0, 10);
         setQueryData(latestRecords);
         setQueryLastUpdate(new Date());
+        setQueryCountdown(600); // Reset countdown on manual refresh
       } else if (response.data && Array.isArray(response.data)) {
         const latestRecords = response.data.slice(0, 10);
         setQueryData(latestRecords);
         setQueryLastUpdate(new Date());
+        setQueryCountdown(600); // Reset countdown on manual refresh
       }
     } catch (error) {
       console.error('Failed to load query data:', error);
@@ -204,6 +226,7 @@ const Signals = () => {
           sell: sellSignals
         });
         setSrLastUpdate(new Date());
+        setSrCountdown(30); // Reset countdown on manual refresh
       }
     } catch (error) {
       console.error('Failed to load support-resistance data:', error);
@@ -241,6 +264,13 @@ const Signals = () => {
     } catch {
       return timestamp;
     }
+  };
+
+  // Format countdown time (seconds) to "MM:SS" format
+  const formatCountdown = (seconds) => {
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   const handleSettingsOpen = () => {
@@ -350,6 +380,9 @@ const Signals = () => {
             extra={
               <Space>
                 <Tag color="orange">3分钟刷新</Tag>
+                <Tag color="green" icon={<ClockCircleOutlined />}>
+                  还剩 {formatCountdown(panicCountdown)}
+                </Tag>
                 <ReloadOutlined 
                   spin={panicLoading}
                   onClick={() => loadPanicData(true)}
@@ -549,6 +582,9 @@ const Signals = () => {
             extra={
               <Space>
                 <Tag color="green">10分钟刷新</Tag>
+                <Tag color="cyan" icon={<ClockCircleOutlined />}>
+                  还剩 {formatCountdown(queryCountdown)}
+                </Tag>
                 <ReloadOutlined 
                   spin={queryLoading}
                   onClick={() => loadQueryData(true)}
@@ -670,7 +706,9 @@ const Signals = () => {
             extra={
               <Space>
                 <Tag color="orange">30秒刷新</Tag>
-                <Tag color="purple">1小时窗口</Tag>
+                <Tag color="magenta" icon={<ClockCircleOutlined />}>
+                  还剩 {formatCountdown(srCountdown)}
+                </Tag>
                 <ReloadOutlined 
                   spin={srLoading}
                   onClick={() => loadSRData(true)}
