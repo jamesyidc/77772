@@ -88,4 +88,11 @@ export const marketAPI = {
   getInstruments: (instType = 'SWAP') => api.get('/market/instruments', { params: { inst_type: instType } }),
 };
 
+// Signal APIs
+export const signalAPI = {
+  getSignals: (forceRefresh = false) => api.get('/signals', { params: { force_refresh: forceRefresh } }),
+  updateSignalSource: (url) => api.post('/signals/source', { url }),
+  getSignalSource: () => api.get('/signals/source'),
+};
+
 export default api;

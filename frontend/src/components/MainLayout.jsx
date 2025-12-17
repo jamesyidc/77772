@@ -8,6 +8,7 @@ import {
   UnorderedListOutlined,
   HistoryOutlined,
   SettingOutlined,
+  BellOutlined,
 } from '@ant-design/icons';
 
 const { Header, Sider, Content } = Layout;
@@ -39,6 +40,11 @@ const MainLayout = ({ children }) => {
       key: '/orders',
       icon: <UnorderedListOutlined />,
       label: '订单管理',
+    },
+    {
+      key: '/signals',
+      icon: <BellOutlined />,
+      label: '交易信号',
     },
     {
       key: '/history',

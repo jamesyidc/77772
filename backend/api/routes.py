@@ -3,12 +3,14 @@ FastAPI Routes for OKX Trading System
 """
 from fastapi import APIRouter, HTTPException
 from typing import Optional, List
+from pydantic import BaseModel
 from backend.models.schemas import (
     OrderRequest, PercentageOrderRequest, ConditionalOrderRequest,
     LeverageRequest, CancelOrderRequest, HistoryRequest
 )
 from backend.services.account_manager import account_manager
 from backend.services.trading_service import TradingService
+from backend.services.signal_service import signal_service
 
 router = APIRouter()
 
@@ -437,3 +439,51 @@ async def get_instruments(inst_type: str = "SWAP"):
     
     account = account_manager.get_account(accounts[0])
     return account.get_instruments(inst_type=inst_type)
+
+
+# ==================== Trading Signals ====================
+
+class SignalSourceUpdate(BaseModel):
+    url: str
+
+
+@router.get("/signals")
+async def get_trading_signals(force_refresh: bool = False):
+    """
+    Get trading signals from configured source
+    Signals are cached and automatically refreshed every 30 seconds
+    Returns deduplicated signals from last 1 hour
+    
+    Query params:
+        force_refresh: Force immediate refresh (optional, default: false)
+    """
+    return await signal_service.get_signals(force_refresh=force_refresh)
+
+
+@router.post("/signals/source")
+async def update_signal_source(request: SignalSourceUpdate):
+    """
+    Update the signal source URL
+    This allows changing the signal source without restarting the server
+    """
+    if not request.url:
+        raise HTTPException(status_code=400, detail="URL is required")
+    
+    result = signal_service.update_signal_source(request.url)
+    
+    if result['code'] != '0':
+        raise HTTPException(status_code=500, detail=result['msg'])
+    
+    return result
+
+
+@router.get("/signals/source")
+async def get_signal_source():
+    """Get current signal source URL"""
+    return {
+        "code": "0",
+        "msg": "Success",
+        "data": {
+            "url": signal_service.signal_source_url
+        }
+    }

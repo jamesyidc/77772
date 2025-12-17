@@ -9,6 +9,7 @@ import Positions from './pages/Positions';
 import Orders from './pages/Orders';
 import History from './pages/History';
 import Settings from './pages/Settings';
+import Signals from './pages/Signals';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="/positions" element={<Positions />} />
           <Route path="/orders" element={<Orders />} />
           <Route path="/history" element={<History />} />
+          <Route path="/signals" element={<Signals />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </MainLayout>
