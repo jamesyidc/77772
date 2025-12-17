@@ -7,7 +7,7 @@ import './Signals.css';
 // Default URLs - Using backend proxy to avoid CORS
 const DEFAULT_URLS = {
   panic: '/api/v1/proxy/panic',
-  query: '/api/v1/proxy/query',
+  query: '/api/v1/proxy/timeline',  // Changed to timeline for summary data
   supportResistance: '/api/v1/proxy/support-resistance'
 };
 
@@ -108,18 +108,19 @@ const Signals = () => {
       
       const response = await axios.get(urls.query);
       
-      // Handle API response: {coins: [...]}
-      if (response.data && response.data.coins && Array.isArray(response.data.coins)) {
+      // Handle timeline API response: {snapshots: [...]}
+      if (response.data && response.data.snapshots && Array.isArray(response.data.snapshots)) {
         // Only keep the latest 10 records
+        const latestRecords = response.data.snapshots.slice(0, 10);
+        setQueryData(latestRecords);
+        setQueryLastUpdate(new Date());
+      } else if (response.data && response.data.coins && Array.isArray(response.data.coins)) {
+        // Fallback for coins format
         const latestRecords = response.data.coins.slice(0, 10);
         setQueryData(latestRecords);
         setQueryLastUpdate(new Date());
       } else if (response.data && Array.isArray(response.data)) {
         const latestRecords = response.data.slice(0, 10);
-        setQueryData(latestRecords);
-        setQueryLastUpdate(new Date());
-      } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
-        const latestRecords = response.data.data.slice(0, 10);
         setQueryData(latestRecords);
         setQueryLastUpdate(new Date());
       }
@@ -570,18 +571,18 @@ const Signals = () => {
                 borderRadius: '4px',
                 minWidth: '1300px'
               }}>
-                <div>币种</div>
+                <div>运算时间</div>
                 <div>急涨</div>
                 <div>急跌</div>
                 <div>本轮急涨</div>
                 <div>本轮急跌</div>
-                <div>排名</div>
-                <div>优先级</div>
+                <div>计次</div>
+                <div>计次得分</div>
                 <div>状态</div>
-                <div>比值1</div>
-                <div>跌幅%</div>
-                <div>当前价格</div>
-                <div>历史最高</div>
+                <div>比值</div>
+                <div>差值</div>
+                <div>比价最低</div>
+                <div>比价创新高</div>
                 <div>24h涨≥10%</div>
                 <div>24h跌≤-10%</div>
               </div>
@@ -606,30 +607,30 @@ const Signals = () => {
                       minWidth: '1300px'
                     }}
                   >
-                    <div style={{ color: '#666', fontWeight: 'bold' }}>{item.symbol || item.运算时间 || item.update_time || '-'}</div>
-                    <div style={{ color: (item.rush_up || item.急涨 || 0) > 0 ? '#52c41a' : '#666' }}>{item.rush_up ?? item.急涨 ?? '-'}</div>
-                    <div style={{ color: (item.rush_down || item.急跌 || 0) > 0 ? '#ff4d4f' : '#666' }}>{item.rush_down ?? item.急跌 ?? '-'}</div>
-                    <div style={{ color: (item.本轮急涨 || 0) > 0 ? '#52c41a' : '#666', fontWeight: 'bold' }}>{item.本轮急涨 ?? '-'}</div>
-                    <div style={{ color: (item.本轮急跌 || 0) > 0 ? '#ff4d4f' : '#666', fontWeight: 'bold' }}>{item.本轮急跌 ?? '-'}</div>
-                    <div>{item.rank ?? item.计次 ?? '-'}</div>
-                    <div>{item.priority || item.计次得分 || '-'}</div>
+                    <div style={{ color: '#666', fontSize: '12px' }}>{item.snapshot_time || '-'}</div>
+                    <div style={{ color: (item.rush_up || 0) > 0 ? '#52c41a' : '#666', fontWeight: 'bold' }}>{item.rush_up ?? '-'}</div>
+                    <div style={{ color: (item.rush_down || 0) > 0 ? '#ff4d4f' : '#666', fontWeight: 'bold' }}>{item.rush_down ?? '-'}</div>
+                    <div style={{ color: (item.round_rush_up || 0) > 0 ? '#52c41a' : '#666', fontWeight: 'bold' }}>{item.round_rush_up ?? '-'}</div>
+                    <div style={{ color: (item.round_rush_down || 0) > 0 ? '#ff4d4f' : '#666', fontWeight: 'bold' }}>{item.round_rush_down ?? '-'}</div>
+                    <div>{item.count ?? '-'}</div>
+                    <div>{item.count_score_display || '-'}</div>
                     <div>
                       <Tag color={
-                        (item.change || 0) > 5 ? 'green' :
-                        (item.change || 0) < -5 ? 'red' : 'orange'
+                        item.status === '急涨' ? 'green' :
+                        item.status === '急跌' ? 'red' : 'orange'
                       }>
-                        {(item.change || 0) > 5 ? '急涨' : (item.change || 0) < -5 ? '急跌' : '震荡'}
+                        {item.status || '震荡'}
                       </Tag>
                     </div>
-                    <div>{item.ratio1 || item.比值 || '-'}</div>
+                    <div>{item.ratio ?? '-'}</div>
                     <div style={{ 
-                      color: (item.decline || item.差值 || 0) > 0 ? '#52c41a' : (item.decline || item.差值 || 0) < 0 ? '#ff4d4f' : '#666',
-                      fontWeight: (item.decline || item.差值 || 0) !== 0 ? 'bold' : 'normal'
-                    }}>{(item.decline || item.差值)?.toFixed(2) ?? '-'}</div>
-                    <div>{item.current_price?.toFixed(2) || item.比价最低 || '-'}</div>
-                    <div>{item.high_price?.toFixed(2) || item.比价创新高 || '-'}</div>
-                    <div style={{ color: (item.change_24h || 0) >= 10 ? '#52c41a' : '#666' }}>{(item.change_24h || 0) >= 10 ? '是' : '-'}</div>
-                    <div style={{ color: (item.change_24h || 0) <= -10 ? '#ff4d4f' : '#666' }}>{(item.change_24h || 0) <= -10 ? '是' : '-'}</div>
+                      color: (item.diff || 0) > 0 ? '#52c41a' : (item.diff || 0) < 0 ? '#ff4d4f' : '#666',
+                      fontWeight: (item.diff || 0) !== 0 ? 'bold' : 'normal'
+                    }}>{item.diff ?? '-'}</div>
+                    <div>{item.price_lowest ?? '-'}</div>
+                    <div>{item.price_newhigh ?? '-'}</div>
+                    <div style={{ color: (item.rise_24h_count || 0) > 0 ? '#52c41a' : '#666' }}>{item.rise_24h_count ?? '-'}</div>
+                    <div style={{ color: (item.fall_24h_count || 0) > 0 ? '#ff4d4f' : '#666' }}>{item.fall_24h_count ?? '-'}</div>
                   </div>
                 ))}
                 <div style={{ marginTop: 16, textAlign: 'center', color: '#999', fontSize: '12px' }}>

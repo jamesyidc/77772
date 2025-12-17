@@ -517,6 +517,18 @@ async def proxy_query_data():
         raise HTTPException(status_code=500, detail=f"Failed to fetch query data: {str(e)}")
 
 
+@router.get("/proxy/timeline")
+async def proxy_timeline_data():
+    """Proxy timeline summary data to avoid CORS issues"""
+    url = "https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/api/timeline"
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, timeout=10.0)
+            return response.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch timeline data: {str(e)}")
+
+
 @router.get("/proxy/support-resistance")
 async def proxy_sr_data():
     """Proxy support-resistance data to avoid CORS issues"""
