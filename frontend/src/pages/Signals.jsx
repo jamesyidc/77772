@@ -209,22 +209,30 @@ const Signals = () => {
         // Find snapshots with actual buy (scenario_1 or scenario_2 > 0) or sell signals
         // scenario_1/scenario_2 = buy signals (near support)
         // scenario_3/scenario_4 = sell signals (near resistance)
-        const buySnapshots = snapshots.filter(s => 
-          (s.scenario_1_count > 0 || s.scenario_2_count > 0) &&
-          s.scenario_1_coins && s.scenario_1_coins.length > 0
-        ).map(s => ({
+        const buySnapshots = snapshots.filter(s => {
+          const count1 = s.scenario_1_count || 0;
+          const count2 = s.scenario_2_count || 0;
+          const coins1 = s.scenario_1_coins || [];
+          const coins2 = s.scenario_2_coins || [];
+          // 只保留真正有信号的快照 (count > 0 且有币种数据)
+          return (count1 > 0 || count2 > 0) && (coins1.length > 0 || coins2.length > 0);
+        }).map(s => ({
           time: s.snapshot_time,
-          count: s.scenario_1_count + s.scenario_2_count,
+          count: (s.scenario_1_count || 0) + (s.scenario_2_count || 0),
           coins: [...(s.scenario_1_coins || []), ...(s.scenario_2_coins || [])],
           snapshot_date: s.snapshot_date
         }));
         
-        const sellSnapshots = snapshots.filter(s =>
-          (s.scenario_3_count > 0 || s.scenario_4_count > 0) &&
-          s.scenario_3_coins && s.scenario_3_coins.length > 0
-        ).map(s => ({
+        const sellSnapshots = snapshots.filter(s => {
+          const count3 = s.scenario_3_count || 0;
+          const count4 = s.scenario_4_count || 0;
+          const coins3 = s.scenario_3_coins || [];
+          const coins4 = s.scenario_4_coins || [];
+          // 只保留真正有信号的快照 (count > 0 且有币种数据)
+          return (count3 > 0 || count4 > 0) && (coins3.length > 0 || coins4.length > 0);
+        }).map(s => ({
           time: s.snapshot_time,
-          count: s.scenario_3_count + s.scenario_4_count,
+          count: (s.scenario_3_count || 0) + (s.scenario_4_count || 0),
           coins: [...(s.scenario_3_coins || []), ...(s.scenario_4_coins || [])],
           snapshot_date: s.snapshot_date
         }));
