@@ -263,7 +263,10 @@ const Signals = () => {
     if (!timestamp) return '-';
     try {
       const date = new Date(timestamp);
+      // 明确使用北京时区 (Asia/Shanghai, UTC+8)
       return date.toLocaleString('zh-CN', {
+        timeZone: 'Asia/Shanghai',
+        year: 'numeric',
         month: '2-digit',
         day: '2-digit',
         hour: '2-digit',
@@ -655,7 +658,7 @@ const Signals = () => {
                 <span style={{ fontSize: '18px', fontWeight: 'bold' }}>支撑阻力信号</span>
                 {srLastUpdate && (
                   <Tag icon={<ClockCircleOutlined />} color="blue">
-                    {srLastUpdate.toLocaleTimeString('zh-CN')}
+                    {srLastUpdate.toLocaleTimeString('zh-CN', { timeZone: 'Asia/Shanghai' })}
                   </Tag>
                 )}
               </Space>
@@ -872,7 +875,7 @@ const Signals = () => {
                 <span style={{ fontSize: '18px', fontWeight: 'bold' }}>全网持仓量监控</span>
                 {panicLastUpdate && (
                   <Tag icon={<ClockCircleOutlined />} color="blue">
-                    {panicLastUpdate.toLocaleTimeString('zh-CN')}
+                    {panicLastUpdate.toLocaleTimeString('zh-CN', { timeZone: 'Asia/Shanghai' })}
                   </Tag>
                 )}
               </Space>
@@ -1074,7 +1077,7 @@ const Signals = () => {
                 <span style={{ fontSize: '18px', fontWeight: 'bold' }}>交易信号数据</span>
                 {queryLastUpdate && (
                   <Tag icon={<ClockCircleOutlined />} color="blue">
-                    {queryLastUpdate.toLocaleTimeString('zh-CN')}
+                    {queryLastUpdate.toLocaleTimeString('zh-CN', { timeZone: 'Asia/Shanghai' })}
                   </Tag>
                 )}
               </Space>
