@@ -663,7 +663,7 @@ const Signals = () => {
               <Space>
                 <RiseOutlined style={{ color: '#52c41a' }} />
                 <FallOutlined style={{ color: '#ff4d4f' }} />
-                <span style={{ fontSize: '18px', fontWeight: 'bold' }}>支撑阻力信号</span>
+                <span style={{ fontSize: '18px', fontWeight: 'bold' }}>支撑阻力信号 v2.0</span>
                 {srLastUpdate && (
                   <Tag icon={<ClockCircleOutlined />} color="blue">
                     {srLastUpdate.toLocaleTimeString('zh-CN', { timeZone: 'Asia/Shanghai' })}
@@ -757,9 +757,9 @@ const Signals = () => {
                                 <Col span={24}>
                                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                     <div>
-                                      <span style={{ fontSize: '14px', color: '#666' }}>触发币种: </span>
+                                      <span style={{ fontSize: '14px', color: '#666' }}>🎯 触发币种: </span>
                                       <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#52c41a' }}>
-                                        {snapshot.count} 个
+                                        {snapshot.count} 个币种
                                       </span>
                                     </div>
                                     <RiseOutlined style={{ fontSize: '24px', color: '#52c41a' }} />
@@ -841,9 +841,9 @@ const Signals = () => {
                                 <Col span={24}>
                                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                     <div>
-                                      <span style={{ fontSize: '14px', color: '#666' }}>触发币种: </span>
+                                      <span style={{ fontSize: '14px', color: '#666' }}>🎯 触发币种: </span>
                                       <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#ff4d4f' }}>
-                                        {snapshot.count} 个
+                                        {snapshot.count} 个币种
                                       </span>
                                     </div>
                                     <FallOutlined style={{ fontSize: '24px', color: '#ff4d4f' }} />
