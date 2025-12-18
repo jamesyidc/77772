@@ -200,69 +200,39 @@ const Signals = () => {
         setSrLoading(true);
       }
       
-      const response = await axios.get(urls.supportResistance);
+      // Get snapshot history (last 24 hours with signals)
+      const response = await axios.get(urls.supportResistance.replace('/latest-signal', '/snapshots'));
       
-      if (response.data && response.data.success) {
-        // API returns format: {signals: {buy: bool, sell: bool}, scenario_X_coins: [...]}
-        let buySignals = [];
-        let sellSignals = [];
+      if (response.data && response.data.data && Array.isArray(response.data.data)) {
+        const snapshots = response.data.data;
         
-        // Collect all scenario coins
-        const allCoins = [
-          ...(response.data.scenario_1_coins || []),
-          ...(response.data.scenario_2_coins || []),
-          ...(response.data.scenario_3_coins || []),
-          ...(response.data.scenario_4_coins || [])
-        ];
+        // Find snapshots with actual buy (scenario_1 or scenario_2 > 0) or sell signals
+        // scenario_1/scenario_2 = buy signals (near support)
+        // scenario_3/scenario_4 = sell signals (near resistance)
+        const buySnapshots = snapshots.filter(s => 
+          (s.scenario_1_count > 0 || s.scenario_2_count > 0) &&
+          s.scenario_1_coins && s.scenario_1_coins.length > 0
+        ).map(s => ({
+          time: s.snapshot_time,
+          count: s.scenario_1_count + s.scenario_2_count,
+          coins: [...(s.scenario_1_coins || []), ...(s.scenario_2_coins || [])],
+          snapshot_date: s.snapshot_date
+        }));
         
-        // For now, treat all coins as signals
-        // You can customize logic based on scenario types
-        if (response.data.signals) {
-          if (response.data.signals.buy || response.data.signals.sell) {
-            // Categorize by position (closer to support = buy, closer to resistance = sell)
-            allCoins.forEach(coin => {
-              const position = parseFloat(coin.position || 0);
-              if (position < 50) {
-                // Closer to support line (抄底信号)
-                buySignals.push({
-                  symbol: coin.symbol,
-                  price: coin.current_price,
-                  time: response.data.snapshot_time,
-                  position: position,
-                  distance: coin.distance
-                });
-              } else {
-                // Closer to resistance line (逃顶信号)
-                sellSignals.push({
-                  symbol: coin.symbol,
-                  price: coin.current_price,
-                  time: response.data.snapshot_time,
-                  position: position,
-                  distance: coin.distance,
-                  resistance: coin.resistance_line
-                });
-              }
-            });
-          }
-        }
-        
-        // Also parse any legacy format
-        if (response.data.抄底 && Array.isArray(response.data.抄底)) {
-          buySignals = [...buySignals, ...response.data.抄底];
-        } else if (response.data.buy && Array.isArray(response.data.buy)) {
-          buySignals = [...buySignals, ...response.data.buy];
-        }
-        
-        if (response.data.逃顶 && Array.isArray(response.data.逃顶)) {
-          sellSignals = [...sellSignals, ...response.data.逃顶];
-        } else if (response.data.sell && Array.isArray(response.data.sell)) {
-          sellSignals = [...sellSignals, ...response.data.sell];
-        }
+        const sellSnapshots = snapshots.filter(s =>
+          (s.scenario_3_count > 0 || s.scenario_4_count > 0) &&
+          s.scenario_3_coins && s.scenario_3_coins.length > 0
+        ).map(s => ({
+          time: s.snapshot_time,
+          count: s.scenario_3_count + s.scenario_4_count,
+          coins: [...(s.scenario_3_coins || []), ...(s.scenario_4_coins || [])],
+          snapshot_date: s.snapshot_date
+        }));
         
         const now = new Date();
         setSrData({
-          buy: buySignals,
-          sell: sellSignals
+          buy: buySnapshots,
+          sell: sellSnapshots
         });
         setSrLastUpdate(now);
         srLastUpdateRef.current = now;
@@ -392,11 +362,15 @@ const Signals = () => {
     }
   };
 
-  // Show signal notification modal
-  const showSignalNotification = (signalType, signals) => {
-    const isBot = signalType === 'buy';
-    const title = isBot ? '🟢 抄底信号提醒' : '🔴 逃顶信号提醒';
-    const color = isBot ? '#52c41a' : '#ff4d4f';
+  // Show signal notification modal (for time-based snapshots)
+  const showSignalNotification = (signalType, snapshots) => {
+    const isBuy = signalType === 'buy';
+    const title = isBuy ? '🟢 抄底信号提醒' : '🔴 逃顶信号提醒';
+    const color = isBuy ? '#52c41a' : '#ff4d4f';
+    
+    // Get the latest snapshot
+    const snapshot = snapshots[0];
+    if (!snapshot) return;
     
     // Play sound
     playNotificationSound();
@@ -404,74 +378,94 @@ const Signals = () => {
     // Show modal
     Modal.info({
       title: <span style={{ color, fontSize: '20px', fontWeight: 'bold' }}>{title}</span>,
-      width: 600,
+      width: 700,
       okText: '我知道了',
       maskClosable: false,
       content: (
         <div style={{ marginTop: 20 }}>
           <div style={{ 
-            padding: '12px', 
-            background: isBot ? '#f6ffed' : '#fff1f0',
-            border: `2px solid ${color}`,
-            borderRadius: '8px',
-            marginBottom: '16px'
+            padding: '16px', 
+            background: isBuy ? '#f6ffed' : '#fff1f0',
+            border: `3px solid ${color}`,
+            borderRadius: '12px',
+            marginBottom: '20px'
           }}>
-            <div style={{ fontSize: '16px', fontWeight: 'bold', color, marginBottom: '8px' }}>
-              {isBot ? '⚠️ 检测到抄底机会！' : '⚠️ 检测到逃顶信号！'}
+            <div style={{ fontSize: '20px', fontWeight: 'bold', color, marginBottom: '12px' }}>
+              {isBuy ? '⚠️ 检测到抄底时机！' : '⚠️ 检测到逃顶时机！'}
             </div>
-            <div style={{ fontSize: '14px', color: '#666' }}>
-              {isBot 
-                ? '以下币种接近支撑位，可能是买入时机' 
-                : '以下币种接近阻力位，建议考虑止盈'}
+            <div style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>
+              📅 时间: <span style={{ color }}>{formatTime(snapshot.time)}</span>
+            </div>
+            <div style={{ fontSize: '16px', fontWeight: 'bold' }}>
+              📊 触发币种数量: <span style={{ color, fontSize: '20px' }}>{snapshot.count}</span> 个
             </div>
           </div>
           
-          {signals.slice(0, 5).map((signal, index) => (
+          <div style={{ fontSize: '14px', color: '#666', marginBottom: '16px', fontWeight: 'bold' }}>
+            {isBuy 
+              ? '以下币种接近支撑位，可能是买入时机：' 
+              : '以下币种接近阻力位，建议考虑止盈：'}
+          </div>
+          
+          {snapshot.coins && snapshot.coins.slice(0, 8).map((coin, index) => (
             <div 
               key={index}
               style={{
-                padding: '12px',
-                marginBottom: '8px',
+                padding: '10px 12px',
+                marginBottom: '6px',
                 background: '#fff',
-                border: `1px solid ${isBot ? '#b7eb8f' : '#ffccc7'}`,
-                borderRadius: '4px'
+                border: `1px solid ${isBuy ? '#b7eb8f' : '#ffccc7'}`,
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
               }}
             >
-              <Row gutter={[16, 8]}>
-                <Col span={8}>
-                  <div style={{ fontSize: '12px', color: '#999' }}>币种</div>
-                  <div style={{ fontSize: '16px', fontWeight: 'bold', color }}>
-                    {signal.symbol || signal.币种 || '-'}
-                  </div>
-                </Col>
-                <Col span={8}>
-                  <div style={{ fontSize: '12px', color: '#999' }}>当前价格</div>
-                  <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
-                    {signal.price || signal.current_price || signal.价格 || '-'}
-                  </div>
-                </Col>
-                <Col span={8}>
-                  <div style={{ fontSize: '12px', color: '#999' }}>位置</div>
-                  <div style={{ fontSize: '14px' }}>
-                    {signal.position ? `${signal.position.toFixed(1)}%` : '-'}
-                  </div>
-                </Col>
-                {signal.time && (
-                  <Col span={24}>
-                    <div style={{ fontSize: '12px', color: '#999' }}>
-                      时间: {formatTime(signal.time)}
-                    </div>
-                  </Col>
+              <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                <span style={{ 
+                  fontSize: '16px', 
+                  fontWeight: 'bold', 
+                  color, 
+                  minWidth: '100px'
+                }}>
+                  {coin.symbol || '-'}
+                </span>
+                <span style={{ 
+                  fontSize: '14px', 
+                  marginLeft: '16px',
+                  color: '#666'
+                }}>
+                  价格: <strong>{coin.current_price || '-'}</strong>
+                </span>
+                {coin.position && (
+                  <span style={{ 
+                    fontSize: '14px', 
+                    marginLeft: '16px',
+                    color: '#999'
+                  }}>
+                    位置: {coin.position.toFixed(1)}%
+                  </span>
                 )}
-              </Row>
+              </div>
             </div>
           ))}
           
-          {signals.length > 5 && (
-            <div style={{ textAlign: 'center', color: '#999', fontSize: '12px', marginTop: '8px' }}>
-              还有 {signals.length - 5} 个信号未显示
+          {snapshot.coins && snapshot.coins.length > 8 && (
+            <div style={{ textAlign: 'center', color: '#999', fontSize: '14px', marginTop: '12px' }}>
+              还有 {snapshot.coins.length - 8} 个币种未显示
             </div>
           )}
+          
+          <div style={{ 
+            marginTop: '16px', 
+            padding: '12px', 
+            background: '#f0f2f5',
+            borderRadius: '6px',
+            fontSize: '13px',
+            color: '#666'
+          }}>
+            💡 提示: 这是系统在 <strong>{formatTime(snapshot.time)}</strong> 时检测到的{isBuy ? '抄底' : '逃顶'}信号时间点
+          </div>
         </div>
       ),
       onOk: () => {
@@ -487,56 +481,68 @@ const Signals = () => {
     });
   };
 
-  // Check for new signals and show notifications
+  // Check for new signals and show notifications (based on time snapshots, not individual coins)
   useEffect(() => {
     if (!srData.buy && !srData.sell) return;
     
     const allSignals = [...(srData.buy || []), ...(srData.sell || [])];
     if (allSignals.length === 0) return;
     
-    // Check for new buy signals
-    const newBuySignals = (srData.buy || []).filter(signal => {
-      const signalId = `buy_${signal.symbol}_${signal.price}_${signal.time}`;
+    // Check for new buy signal snapshots (时间快照)
+    const newBuySnapshots = (srData.buy || []).filter(snapshot => {
+      const signalId = `buy_${snapshot.time}_${snapshot.count}`;
       return !notifiedSignals.has(signalId);
     });
     
-    // Check for new sell signals
-    const newSellSignals = (srData.sell || []).filter(signal => {
-      const signalId = `sell_${signal.symbol}_${signal.price}_${signal.time}`;
+    // Check for new sell signal snapshots (时间快照)
+    const newSellSnapshots = (srData.sell || []).filter(snapshot => {
+      const signalId = `sell_${snapshot.time}_${snapshot.count}`;
       return !notifiedSignals.has(signalId);
     });
     
-    // Show notifications for new signals
-    if (newBuySignals.length > 0) {
-      showSignalNotification('buy', newBuySignals);
+    // Show notifications for new snapshots
+    if (newBuySnapshots.length > 0) {
+      // Get the latest snapshot (most recent)
+      const latestSnapshot = newBuySnapshots[0];
+      showSignalNotification('buy', [latestSnapshot]);
       
       // Mark as notified
       const newNotified = new Set(notifiedSignals);
-      newBuySignals.forEach(signal => {
-        const signalId = `buy_${signal.symbol}_${signal.price}_${signal.time}`;
+      newBuySnapshots.forEach(snapshot => {
+        const signalId = `buy_${snapshot.time}_${snapshot.count}`;
         newNotified.add(signalId);
       });
       setNotifiedSignals(newNotified);
     }
     
-    if (newSellSignals.length > 0) {
-      showSignalNotification('sell', newSellSignals);
+    if (newSellSnapshots.length > 0) {
+      // Get the latest snapshot (most recent)
+      const latestSnapshot = newSellSnapshots[0];
+      showSignalNotification('sell', [latestSnapshot]);
       
       // Mark as notified
       const newNotified = new Set(notifiedSignals);
-      newSellSignals.forEach(signal => {
-        const signalId = `sell_${signal.symbol}_${signal.price}_${signal.time}`;
+      newSellSnapshots.forEach(snapshot => {
+        const signalId = `sell_${snapshot.time}_${snapshot.count}`;
         newNotified.add(signalId);
       });
       setNotifiedSignals(newNotified);
     }
     
-    // Clean up old notified signals (older than 1 hour)
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    // Clean up old notified signals (older than 24 hours)
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const cleanedNotified = new Set(
       Array.from(notifiedSignals).filter(id => {
-        // Keep all signals for now, as we don't have timestamp in the ID
-        // In production, you'd want to parse the timestamp from the signal
+        // Parse time from ID (format: "buy_2025-12-17 11:30:00_5")
+        const match = id.match(/_([\d-]+ [\d:]+)_/);
+        if (match) {
+          try {
+            const signalTime = new Date(match[1]);
+            return signalTime > oneDayAgo;
+          } catch {
+            return true;
+          }
+        }
         return true;
       })
     );
@@ -692,46 +698,62 @@ const Signals = () => {
                     >
                       {srData.buy.length > 0 ? (
                         <div className="signal-list">
-                          {srData.buy.map((signal, index) => (
+                          {srData.buy.slice(0, 10).map((snapshot, index) => (
                             <div 
                               key={index}
                               className="signal-item"
                               style={{
-                                padding: '12px',
-                                marginBottom: '8px',
-                                background: '#fff',
-                                border: '1px solid #b7eb8f',
-                                borderRadius: '4px',
-                                transition: 'all 0.3s'
+                                padding: '14px',
+                                marginBottom: '10px',
+                                background: index === 0 ? '#f6ffed' : '#fff',
+                                border: index === 0 ? '2px solid #52c41a' : '1px solid #b7eb8f',
+                                borderRadius: '6px',
+                                transition: 'all 0.3s',
+                                cursor: 'pointer'
+                              }}
+                              onClick={() => {
+                                Modal.info({
+                                  title: '📊 抄底信号详情',
+                                  width: 600,
+                                  content: (
+                                    <div>
+                                      <div style={{ fontSize: '16px', marginBottom: '12px' }}>
+                                        <strong>时间:</strong> {formatTime(snapshot.time)}
+                                      </div>
+                                      <div style={{ fontSize: '16px', marginBottom: '16px' }}>
+                                        <strong>触发币种数量:</strong> {snapshot.count} 个
+                                      </div>
+                                      <div style={{ fontSize: '14px', color: '#666', marginBottom: '12px' }}>币种列表:</div>
+                                      {snapshot.coins.map((coin, i) => (
+                                        <div key={i} style={{ padding: '8px', marginBottom: '6px', background: '#f5f5f5', borderRadius: '4px' }}>
+                                          <strong>{coin.symbol}</strong> - 价格: {coin.current_price}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )
+                                });
                               }}
                             >
-                              <Row gutter={[8, 8]}>
+                              <Row gutter={[12, 8]} align="middle">
                                 <Col span={24}>
-                                  <Space>
-                                    <Tag color="green" icon={<ClockCircleOutlined />}>
-                                      {formatTime(signal.时间 || signal.timestamp || signal.time)}
+                                  <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                                    <Tag color="green" icon={<ClockCircleOutlined />} style={{ fontSize: '13px' }}>
+                                      {formatTime(snapshot.time)}
                                     </Tag>
+                                    {index === 0 && <Tag color="red">最新</Tag>}
                                   </Space>
                                 </Col>
-                                <Col span={12}>
-                                  <div style={{ fontSize: '12px', color: '#666' }}>价格</div>
-                                  <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#52c41a' }}>
-                                    {signal.价格 || signal.price || '-'}
-                                  </div>
-                                </Col>
-                                <Col span={12}>
-                                  <div style={{ fontSize: '12px', color: '#666' }}>强度</div>
-                                  <div style={{ fontSize: '16px', fontWeight: 'bold' }}>
-                                    {signal.强度 || signal.strength || '-'}
-                                  </div>
-                                </Col>
-                                {(signal.备注 || signal.note || signal.description) && (
-                                  <Col span={24}>
-                                    <div style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
-                                      {signal.备注 || signal.note || signal.description}
+                                <Col span={24}>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <div>
+                                      <span style={{ fontSize: '14px', color: '#666' }}>触发币种: </span>
+                                      <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#52c41a' }}>
+                                        {snapshot.count} 个
+                                      </span>
                                     </div>
-                                  </Col>
-                                )}
+                                    <RiseOutlined style={{ fontSize: '24px', color: '#52c41a' }} />
+                                  </div>
+                                </Col>
                               </Row>
                             </div>
                           ))}
@@ -760,46 +782,62 @@ const Signals = () => {
                     >
                       {srData.sell.length > 0 ? (
                         <div className="signal-list">
-                          {srData.sell.map((signal, index) => (
+                          {srData.sell.slice(0, 10).map((snapshot, index) => (
                             <div 
                               key={index}
                               className="signal-item"
                               style={{
-                                padding: '12px',
-                                marginBottom: '8px',
-                                background: '#fff',
-                                border: '1px solid #ffccc7',
-                                borderRadius: '4px',
-                                transition: 'all 0.3s'
+                                padding: '14px',
+                                marginBottom: '10px',
+                                background: index === 0 ? '#fff1f0' : '#fff',
+                                border: index === 0 ? '2px solid #ff4d4f' : '1px solid #ffccc7',
+                                borderRadius: '6px',
+                                transition: 'all 0.3s',
+                                cursor: 'pointer'
+                              }}
+                              onClick={() => {
+                                Modal.info({
+                                  title: '📊 逃顶信号详情',
+                                  width: 600,
+                                  content: (
+                                    <div>
+                                      <div style={{ fontSize: '16px', marginBottom: '12px' }}>
+                                        <strong>时间:</strong> {formatTime(snapshot.time)}
+                                      </div>
+                                      <div style={{ fontSize: '16px', marginBottom: '16px' }}>
+                                        <strong>触发币种数量:</strong> {snapshot.count} 个
+                                      </div>
+                                      <div style={{ fontSize: '14px', color: '#666', marginBottom: '12px' }}>币种列表:</div>
+                                      {snapshot.coins.map((coin, i) => (
+                                        <div key={i} style={{ padding: '8px', marginBottom: '6px', background: '#f5f5f5', borderRadius: '4px' }}>
+                                          <strong>{coin.symbol}</strong> - 价格: {coin.current_price}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )
+                                });
                               }}
                             >
-                              <Row gutter={[8, 8]}>
+                              <Row gutter={[12, 8]} align="middle">
                                 <Col span={24}>
-                                  <Space>
-                                    <Tag color="red" icon={<ClockCircleOutlined />}>
-                                      {formatTime(signal.时间 || signal.timestamp || signal.time)}
+                                  <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                                    <Tag color="red" icon={<ClockCircleOutlined />} style={{ fontSize: '13px' }}>
+                                      {formatTime(snapshot.time)}
                                     </Tag>
+                                    {index === 0 && <Tag color="green">最新</Tag>}
                                   </Space>
                                 </Col>
-                                <Col span={12}>
-                                  <div style={{ fontSize: '12px', color: '#666' }}>价格</div>
-                                  <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#ff4d4f' }}>
-                                    {signal.价格 || signal.price || '-'}
-                                  </div>
-                                </Col>
-                                <Col span={12}>
-                                  <div style={{ fontSize: '12px', color: '#666' }}>强度</div>
-                                  <div style={{ fontSize: '16px', fontWeight: 'bold' }}>
-                                    {signal.强度 || signal.strength || '-'}
-                                  </div>
-                                </Col>
-                                {(signal.备注 || signal.note || signal.description) && (
-                                  <Col span={24}>
-                                    <div style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
-                                      {signal.备注 || signal.note || signal.description}
+                                <Col span={24}>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <div>
+                                      <span style={{ fontSize: '14px', color: '#666' }}>触发币种: </span>
+                                      <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#ff4d4f' }}>
+                                        {snapshot.count} 个
+                                      </span>
                                     </div>
-                                  </Col>
-                                )}
+                                    <FallOutlined style={{ fontSize: '24px', color: '#ff4d4f' }} />
+                                  </div>
+                                </Col>
                               </Row>
                             </div>
                           ))}
@@ -816,7 +854,7 @@ const Signals = () => {
                   <Space>
                     <ClockCircleOutlined style={{ color: '#1890ff' }} />
                     <span style={{ color: '#0050b3' }}>
-                      <strong>说明：</strong>显示最近 1 小时内的信号，每 30 秒自动刷新，已自动去重
+                      <strong>说明：</strong>显示最近的信号时间点，每 30 秒自动刷新。点击信号可查看详细币种信息。检测到新信号时会自动弹窗提醒。
                     </span>
                   </Space>
                 </div>
