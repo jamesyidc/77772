@@ -33,6 +33,11 @@ const Signals = () => {
   const [srCountdown, setSrCountdown] = useState(30); // 30 seconds
   const srLastUpdateRef = useRef(null);
   
+  // Signal notifications
+  const [notifiedSignals, setNotifiedSignals] = useState(new Set());
+  const audioRef = useRef(null);
+  const audioTimeoutRef = useRef(null);
+  
   // Settings
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [urls, setUrls] = useState(() => {
@@ -106,6 +111,12 @@ const Signals = () => {
       }
       if (countdownIntervalRef.current) {
         clearInterval(countdownIntervalRef.current);
+      }
+      if (audioTimeoutRef.current) {
+        clearTimeout(audioTimeoutRef.current);
+      }
+      if (audioRef.current) {
+        audioRef.current.pause();
       }
     };
   }, []);
@@ -301,6 +312,242 @@ const Signals = () => {
     const secs = seconds % 60;
     return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
+
+  // Play notification sound for 10 seconds
+  const playNotificationSound = () => {
+    // Clear any existing timeout
+    if (audioTimeoutRef.current) {
+      clearTimeout(audioTimeoutRef.current);
+    }
+    
+    // Stop any currently playing audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    
+    // Create audio context and generate beep sound
+    try {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // Configure beep sound (800Hz frequency)
+      oscillator.frequency.value = 800;
+      oscillator.type = 'sine';
+      
+      // Set volume
+      gainNode.gain.value = 0.3;
+      
+      // Play repeating beep for 10 seconds
+      const beepDuration = 0.2; // 200ms beep
+      const pauseDuration = 0.3; // 300ms pause
+      const totalDuration = 10; // 10 seconds total
+      
+      let currentTime = audioContext.currentTime;
+      const endTime = currentTime + totalDuration;
+      
+      while (currentTime < endTime) {
+        oscillator.start(currentTime);
+        oscillator.stop(currentTime + beepDuration);
+        currentTime += beepDuration + pauseDuration;
+        
+        // Create new oscillator for next beep
+        if (currentTime < endTime) {
+          const newOscillator = audioContext.createOscillator();
+          newOscillator.connect(gainNode);
+          newOscillator.frequency.value = 800;
+          newOscillator.type = 'sine';
+          oscillator = newOscillator;
+        }
+      }
+      
+      // Clean up after 10 seconds
+      audioTimeoutRef.current = setTimeout(() => {
+        audioContext.close();
+      }, totalDuration * 1000);
+      
+    } catch (error) {
+      console.error('Failed to play notification sound:', error);
+      // Fallback: try using HTML5 audio with data URI
+      try {
+        // Create a simple beep using data URI
+        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUKXh8LVkHAU7k9nxynksBSp+zPDckT4IFV+16+uoVRQLR6Hf8r1tIAUsgs/y2Ik3CBtpvfDknE4MDlCl4PG2ZBwFO5PY8cl5LAUFKH7M8NyRPQkVXrTo7KlXFAtGoN/zv20gBS+C0PHYijUIHGi88OSbTQwPUabh8bdlHAU7k9nxynksBSh+zPHbkT0JFV607OuoVhQLR6Hg8r1tIAUsgs/y2Yo2CBxovPDjm00MEFGl4PG2ZBwFPJLY8cp5KwUofszw3JI+CRVetOzrp1UUC0eg3/K8bB8FLYLPadminUSUBWSm3fK8aiAFMILPad2H');
+        audio.loop = true;
+        audio.play();
+        
+        audioRef.current = audio;
+        
+        // Stop after 10 seconds
+        audioTimeoutRef.current = setTimeout(() => {
+          audio.pause();
+          audio.currentTime = 0;
+        }, 10000);
+      } catch (e) {
+        console.error('Fallback audio also failed:', e);
+      }
+    }
+  };
+
+  // Show signal notification modal
+  const showSignalNotification = (signalType, signals) => {
+    const isBot = signalType === 'buy';
+    const title = isBot ? '🟢 抄底信号提醒' : '🔴 逃顶信号提醒';
+    const color = isBot ? '#52c41a' : '#ff4d4f';
+    
+    // Play sound
+    playNotificationSound();
+    
+    // Show modal
+    Modal.info({
+      title: <span style={{ color, fontSize: '20px', fontWeight: 'bold' }}>{title}</span>,
+      width: 600,
+      okText: '我知道了',
+      maskClosable: false,
+      content: (
+        <div style={{ marginTop: 20 }}>
+          <div style={{ 
+            padding: '12px', 
+            background: isBot ? '#f6ffed' : '#fff1f0',
+            border: `2px solid ${color}`,
+            borderRadius: '8px',
+            marginBottom: '16px'
+          }}>
+            <div style={{ fontSize: '16px', fontWeight: 'bold', color, marginBottom: '8px' }}>
+              {isBot ? '⚠️ 检测到抄底机会！' : '⚠️ 检测到逃顶信号！'}
+            </div>
+            <div style={{ fontSize: '14px', color: '#666' }}>
+              {isBot 
+                ? '以下币种接近支撑位，可能是买入时机' 
+                : '以下币种接近阻力位，建议考虑止盈'}
+            </div>
+          </div>
+          
+          {signals.slice(0, 5).map((signal, index) => (
+            <div 
+              key={index}
+              style={{
+                padding: '12px',
+                marginBottom: '8px',
+                background: '#fff',
+                border: `1px solid ${isBot ? '#b7eb8f' : '#ffccc7'}`,
+                borderRadius: '4px'
+              }}
+            >
+              <Row gutter={[16, 8]}>
+                <Col span={8}>
+                  <div style={{ fontSize: '12px', color: '#999' }}>币种</div>
+                  <div style={{ fontSize: '16px', fontWeight: 'bold', color }}>
+                    {signal.symbol || signal.币种 || '-'}
+                  </div>
+                </Col>
+                <Col span={8}>
+                  <div style={{ fontSize: '12px', color: '#999' }}>当前价格</div>
+                  <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
+                    {signal.price || signal.current_price || signal.价格 || '-'}
+                  </div>
+                </Col>
+                <Col span={8}>
+                  <div style={{ fontSize: '12px', color: '#999' }}>位置</div>
+                  <div style={{ fontSize: '14px' }}>
+                    {signal.position ? `${signal.position.toFixed(1)}%` : '-'}
+                  </div>
+                </Col>
+                {signal.time && (
+                  <Col span={24}>
+                    <div style={{ fontSize: '12px', color: '#999' }}>
+                      时间: {formatTime(signal.time)}
+                    </div>
+                  </Col>
+                )}
+              </Row>
+            </div>
+          ))}
+          
+          {signals.length > 5 && (
+            <div style={{ textAlign: 'center', color: '#999', fontSize: '12px', marginTop: '8px' }}>
+              还有 {signals.length - 5} 个信号未显示
+            </div>
+          )}
+        </div>
+      ),
+      onOk: () => {
+        // Stop sound when modal is closed
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+        }
+        if (audioTimeoutRef.current) {
+          clearTimeout(audioTimeoutRef.current);
+        }
+      }
+    });
+  };
+
+  // Check for new signals and show notifications
+  useEffect(() => {
+    if (!srData.buy && !srData.sell) return;
+    
+    const allSignals = [...(srData.buy || []), ...(srData.sell || [])];
+    if (allSignals.length === 0) return;
+    
+    // Check for new buy signals
+    const newBuySignals = (srData.buy || []).filter(signal => {
+      const signalId = `buy_${signal.symbol}_${signal.price}_${signal.time}`;
+      return !notifiedSignals.has(signalId);
+    });
+    
+    // Check for new sell signals
+    const newSellSignals = (srData.sell || []).filter(signal => {
+      const signalId = `sell_${signal.symbol}_${signal.price}_${signal.time}`;
+      return !notifiedSignals.has(signalId);
+    });
+    
+    // Show notifications for new signals
+    if (newBuySignals.length > 0) {
+      showSignalNotification('buy', newBuySignals);
+      
+      // Mark as notified
+      const newNotified = new Set(notifiedSignals);
+      newBuySignals.forEach(signal => {
+        const signalId = `buy_${signal.symbol}_${signal.price}_${signal.time}`;
+        newNotified.add(signalId);
+      });
+      setNotifiedSignals(newNotified);
+    }
+    
+    if (newSellSignals.length > 0) {
+      showSignalNotification('sell', newSellSignals);
+      
+      // Mark as notified
+      const newNotified = new Set(notifiedSignals);
+      newSellSignals.forEach(signal => {
+        const signalId = `sell_${signal.symbol}_${signal.price}_${signal.time}`;
+        newNotified.add(signalId);
+      });
+      setNotifiedSignals(newNotified);
+    }
+    
+    // Clean up old notified signals (older than 1 hour)
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const cleanedNotified = new Set(
+      Array.from(notifiedSignals).filter(id => {
+        // Keep all signals for now, as we don't have timestamp in the ID
+        // In production, you'd want to parse the timestamp from the signal
+        return true;
+      })
+    );
+    
+    // Limit the set size to prevent memory issues
+    if (cleanedNotified.size > 1000) {
+      const sortedIds = Array.from(cleanedNotified);
+      const recentIds = sortedIds.slice(-500);
+      setNotifiedSignals(new Set(recentIds));
+    }
+  }, [srData]);
 
   const handleSettingsOpen = () => {
     form.setFieldsValue(urls);
