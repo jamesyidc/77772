@@ -519,12 +519,22 @@ async def proxy_query_data():
 
 @router.get("/proxy/timeline")
 async def proxy_timeline_data():
-    """Proxy timeline summary data to avoid CORS issues"""
-    url = "https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/api/timeline"
+    """Proxy timeline summary data to avoid CORS issues
+    
+    NOTE: Using /api/latest endpoint because /api/timeline has database error (ratio_diff column missing)
+    The /api/latest endpoint returns the same data structure with coins array
+    """
+    # Original URL has error: url = "https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/api/timeline"
+    # Using /api/latest as fallback which returns coins data
+    url = "https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/api/latest"
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(url, timeout=10.0)
-            return response.json()
+            data = response.json()
+            # Transform to timeline-compatible format if needed
+            # Frontend expects either {snapshots: [...]} or {coins: [...]}
+            # /api/latest already returns {coins: [...], ...} so it works
+            return data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch timeline data: {str(e)}")
 
