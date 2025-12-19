@@ -522,19 +522,43 @@ async def proxy_timeline_data():
     """Proxy timeline summary data to avoid CORS issues
     
     NOTE: Using /api/latest endpoint because /api/timeline has database error (ratio_diff column missing)
-    The /api/latest endpoint returns the same data structure with coins array
+    The /api/latest returns a single snapshot object, but frontend expects an array of snapshots
     """
     # Original URL has error: url = "https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/api/timeline"
-    # Using /api/latest as fallback which returns coins data
+    # Using /api/latest as fallback
     url = "https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/api/latest"
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(url, timeout=10.0)
             data = response.json()
-            # Transform to timeline-compatible format if needed
-            # Frontend expects either {snapshots: [...]} or {coins: [...]}
-            # /api/latest already returns {coins: [...], ...} so it works
-            return data
+            
+            # Transform to timeline-compatible format
+            # Frontend expects {snapshots: [snapshot_objects]}
+            # /api/latest returns a single snapshot object with summary fields + coins array
+            # We need to extract the summary fields (excluding coins) and wrap in snapshots array
+            
+            snapshot = {
+                'snapshot_time': data.get('snapshot_time'),
+                'rush_up': data.get('rush_up'),
+                'rush_down': data.get('rush_down'),
+                'round_rush_up': data.get('round_rush_up'),
+                'round_rush_down': data.get('round_rush_down'),
+                'count': data.get('count'),
+                'count_score_display': data.get('count_score_display'),
+                'count_score_type': data.get('count_score_type'),
+                'status': data.get('status'),
+                'ratio': data.get('ratio'),
+                'diff': data.get('diff'),
+                'price_lowest': data.get('price_lowest'),
+                'price_newhigh': data.get('price_newhigh'),
+                'rise_24h_count': data.get('rise_24h_count'),
+                'fall_24h_count': data.get('fall_24h_count')
+            }
+            
+            # Return in format frontend expects: {snapshots: [snapshot]}
+            return {
+                'snapshots': [snapshot]  # Wrap single snapshot in array
+            }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch timeline data: {str(e)}")
 
