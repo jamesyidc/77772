@@ -1,0 +1,207 @@
+.signals-page {
+  padding: 24px;
+  background: #f0f2f5;
+  min-height: 100vh;
+}
+
+.signals-page .ant-card {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+.signals-page .ant-card-head {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 8px 8px 0 0;
+}
+
+.signals-page .ant-card-head-title {
+  color: white;
+}
+
+.signals-page .ant-card-extra {
+  color: white;
+}
+
+/* Panic Card Styles */
+.panic-card .ant-card-head {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+}
+
+.panic-content .ant-card {
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.panic-content .ant-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.panic-content .ant-statistic-title {
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+.panic-content .ant-statistic-content-value {
+  font-weight: bold;
+}
+
+/* Query Card Styles */
+.query-card .ant-card-head {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.query-content {
+  max-width: 100%;
+  overflow-x: auto;
+  position: relative;
+}
+
+.query-content::-webkit-scrollbar {
+  height: 8px;
+}
+
+.query-content::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 4px;
+}
+
+.query-content::-webkit-scrollbar-thumb {
+  background: #d9d9d9;
+  border-radius: 4px;
+}
+
+.query-content::-webkit-scrollbar-thumb:hover {
+  background: #bfbfbf;
+}
+
+.query-header {
+  font-weight: 600;
+  color: #262626;
+}
+
+.query-item {
+  transition: background 0.2s ease;
+}
+
+.query-item:hover {
+  background: #f5f5f5;
+}
+
+/* Support-Resistance Card Styles */
+.sr-card .ant-card-head {
+  background: linear-gradient(135deg, #fa8c16 0%, #faad14 100%);
+}
+
+.sr-content .buy-signals-card,
+.sr-content .sell-signals-card {
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.sr-content .buy-signals-card:hover,
+.sr-content .sell-signals-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.sr-content .signal-item {
+  transition: all 0.3s ease;
+}
+
+.sr-content .signal-item:hover {
+  transform: translateX(4px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.sr-content .buy-signals-card .ant-card-head {
+  background: linear-gradient(135deg, #95de64 0%, #52c41a 100%);
+  border: none;
+}
+
+.sr-content .sell-signals-card .ant-card-head {
+  background: linear-gradient(135deg, #ff7875 0%, #ff4d4f 100%);
+  border: none;
+}
+
+.sr-content .buy-signals-card .ant-card-head-title,
+.sr-content .sell-signals-card .ant-card-head-title {
+  color: white;
+  font-weight: bold;
+}
+
+.sr-content .signal-list {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.sr-content .signal-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sr-content .signal-list::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 3px;
+}
+
+.sr-content .signal-list::-webkit-scrollbar-thumb {
+  background: #d9d9d9;
+  border-radius: 3px;
+}
+
+.sr-content .signal-list::-webkit-scrollbar-thumb:hover {
+  background: #bfbfbf;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .signals-page {
+    padding: 16px;
+  }
+  
+  .panic-content .ant-statistic-content-value {
+    font-size: 24px !important;
+  }
+  
+  .query-content {
+    font-size: 12px;
+  }
+  
+  .query-header,
+  .query-item {
+    grid-template-columns: 1fr;
+  }
+  
+  .query-header > div,
+  .query-item > div {
+    padding: 4px 0;
+  }
+}
+
+/* Loading animation */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.ant-spin-spinning {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Tag styles */
+.signals-page .ant-tag {
+  border-radius: 4px;
+  font-weight: 500;
+  margin: 0;
+}
+
+/* Warning box */
+.signals-page .ant-space {
+  width: 100%;
+}

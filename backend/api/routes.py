@@ -3,12 +3,14 @@ FastAPI Routes for OKX Trading System
 """
 from fastapi import APIRouter, HTTPException
 from typing import Optional, List
+from pydantic import BaseModel
 from backend.models.schemas import (
     OrderRequest, PercentageOrderRequest, ConditionalOrderRequest,
     LeverageRequest, CancelOrderRequest, HistoryRequest
 )
 from backend.services.account_manager import account_manager
 from backend.services.trading_service import TradingService
+from backend.services.signal_service import signal_service
 
 router = APIRouter()
 
@@ -437,3 +439,137 @@ async def get_instruments(inst_type: str = "SWAP"):
     
     account = account_manager.get_account(accounts[0])
     return account.get_instruments(inst_type=inst_type)
+
+
+# ==================== Trading Signals ====================
+
+class SignalSourceUpdate(BaseModel):
+    url: str
+
+
+@router.get("/signals")
+async def get_trading_signals(force_refresh: bool = False):
+    """
+    Get trading signals from configured source
+    Signals are cached and automatically refreshed every 30 seconds
+    Returns deduplicated signals from last 1 hour
+    
+    Query params:
+        force_refresh: Force immediate refresh (optional, default: false)
+    """
+    return await signal_service.get_signals(force_refresh=force_refresh)
+
+
+@router.post("/signals/source")
+async def update_signal_source(request: SignalSourceUpdate):
+    """
+    Update the signal source URL
+    This allows changing the signal source without restarting the server
+    """
+    if not request.url:
+        raise HTTPException(status_code=400, detail="URL is required")
+    
+    result = signal_service.update_signal_source(request.url)
+    
+    if result['code'] != '0':
+        raise HTTPException(status_code=500, detail=result['msg'])
+    
+    return result
+
+
+@router.get("/signals/source")
+async def get_signal_source():
+    """Get current signal source URL"""
+    return {
+        "code": "0",
+        "msg": "Success",
+        "data": {
+            "url": signal_service.signal_source_url
+        }
+    }
+
+
+# ==================== Signal Data Proxy ====================
+
+import httpx
+
+@router.get("/proxy/panic")
+async def proxy_panic_data():
+    """Proxy panic monitor data to avoid CORS issues"""
+    url = "https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/api/panic/latest"
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, timeout=10.0)
+            return response.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch panic data: {str(e)}")
+
+
+@router.get("/proxy/query")
+async def proxy_query_data():
+    """Proxy trading signals query data to avoid CORS issues"""
+    url = "https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/api/latest"
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, timeout=10.0)
+            return response.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch query data: {str(e)}")
+
+
+@router.get("/proxy/timeline")
+async def proxy_timeline_data():
+    """Proxy timeline summary data to avoid CORS issues
+    
+    NOTE: Using /api/latest endpoint because /api/timeline has database error (ratio_diff column missing)
+    The /api/latest returns a single snapshot object, but frontend expects an array of snapshots
+    """
+    # Original URL has error: url = "https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/api/timeline"
+    # Using /api/latest as fallback
+    url = "https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/api/latest"
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, timeout=10.0)
+            data = response.json()
+            
+            # Transform to timeline-compatible format
+            # Frontend expects {snapshots: [snapshot_objects]}
+            # /api/latest returns a single snapshot object with summary fields + coins array
+            # We need to extract the summary fields (excluding coins) and wrap in snapshots array
+            
+            snapshot = {
+                'snapshot_time': data.get('snapshot_time'),
+                'rush_up': data.get('rush_up'),
+                'rush_down': data.get('rush_down'),
+                'round_rush_up': data.get('round_rush_up'),
+                'round_rush_down': data.get('round_rush_down'),
+                'count': data.get('count'),
+                'count_score_display': data.get('count_score_display'),
+                'count_score_type': data.get('count_score_type'),
+                'status': data.get('status'),
+                'ratio': data.get('ratio'),
+                'diff': data.get('diff'),
+                'price_lowest': data.get('price_lowest'),
+                'price_newhigh': data.get('price_newhigh'),
+                'rise_24h_count': data.get('rise_24h_count'),
+                'fall_24h_count': data.get('fall_24h_count')
+            }
+            
+            # Return in format frontend expects: {snapshots: [snapshot]}
+            return {
+                'snapshots': [snapshot]  # Wrap single snapshot in array
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch timeline data: {str(e)}")
+
+
+@router.get("/proxy/support-resistance")
+async def proxy_sr_data():
+    """Proxy support-resistance data to avoid CORS issues"""
+    url = "https://5000-iz6uddj6rs3xe48ilsyqq-cbeee0f9.sandbox.novita.ai/api/support-resistance/latest-signal"
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, timeout=10.0)
+            return response.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch support-resistance data: {str(e)}")
